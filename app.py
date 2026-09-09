@@ -132,7 +132,8 @@ if df is not None:
                     
                     valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                     if valid_dx:
-                        fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
+                        # ลดขนาด figure ลงจาก 2.8 เป็น 2.2
+                        fig1, ax1 = plt.subplots(figsize=(2.2, 2.2))
                         total_dx = sum(valid_dx.values())
                         
                         labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
@@ -141,8 +142,8 @@ if df is not None:
                             labels=labels1, 
                             labeldistance=0.5, 
                             startangle=90,
-                            # ตัวหนังสือธรรมดา ไม่หนา และเป็นสีดำเทา
-                            textprops={'fontsize': 10, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
+                            # ลดขนาดฟอนต์เป็น 8
+                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=plt.cm.tab20.colors,
                             radius=1 
                         )
@@ -153,7 +154,8 @@ if df is not None:
                         img_buf1.seek(0)
                         chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
                         plt.close(fig1)
-                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:200px; display:block; margin:auto;"/>'
+                        # ลดขนาด max-width ให้เล็กลงเพื่อให้พอดีกับกล่อง
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:140px; display:block; margin:auto;"/>'
                     else:
                         chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล Dx</p>"
 
@@ -174,7 +176,8 @@ if df is not None:
                     level_chart_img_tag = ""
                     
                     if active_levels:
-                        fig2, ax2 = plt.subplots(figsize=(2.8, 2.8))
+                        # ลดขนาด figure ลงจาก 2.8 เป็น 2.2
+                        fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                         colors2 = [color_map[k] for k in active_levels.keys()]
                         total_levels = sum(active_levels.values())
                         
@@ -183,8 +186,8 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            # ตัวหนังสือธรรมดา ไม่หนา และเป็นสีดำเทา
-                            textprops={'fontsize': 10, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
+                            # ลดขนาดฟอนต์เป็น 8
+                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=colors2,
                             radius=1 
                         )
@@ -195,7 +198,8 @@ if df is not None:
                         img_buf2.seek(0)
                         chart_base64_2 = base64.b64encode(img_buf2.read()).decode('utf-8')
                         plt.close(fig2)
-                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:200px; display:block; margin:auto;"/>'
+                        # ลดขนาด max-width
+                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:140px; display:block; margin:auto;"/>'
                     else:
                         level_chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล</p>"
 
@@ -231,7 +235,6 @@ if df is not None:
                     <style>
                         @page {{ 
                             size: A4 landscape; 
-                            /* ตั้งค่าขอบกระดาษ: บน 10mm (1ซม.), ขวา 15mm, ล่าง 15mm, ซ้าย 15mm */
                             margin: 10mm 15mm 15mm 15mm; 
                         }}
                         body {{ 
@@ -241,12 +244,11 @@ if df is not None:
                             line-height: 1.5;
                         }}
                         
-                        /* โครงสร้างส่วนหัว (Header) ใหม่ ใช้ตารางเพื่อไม่ให้ทับเส้น */
                         .header-table {{
                             width: 100%;
                             border-collapse: collapse;
                             margin-bottom: 25px;
-                            border-bottom: 2px solid #cbd5e1; /* เส้นใต้ขีดผ่านทั้งโลโก้และหัวข้อ */
+                            border-bottom: 2px solid #cbd5e1; 
                         }}
                         .header-table td {{
                             border: none;
@@ -277,11 +279,13 @@ if df is not None:
                             font-size: 22pt;
                         }}
                         
+                        /* บังคับให้ตารางแบ่งสัดส่วนเท่ากันพอดี 100% / 3 = 33.33% */
                         .summary-container {{
                             width: 100%;
                             border-collapse: separate;
                             border-spacing: 15px 0; 
                             margin-bottom: 25px;
+                            table-layout: fixed; /* ล็อกความกว้างเซลล์ให้เท่ากัน */
                         }}
                         .summary-box {{
                             background-color: #f8fafc;
@@ -289,6 +293,7 @@ if df is not None:
                             border-radius: 8px;
                             padding: 15px 20px;
                             vertical-align: middle;
+                            width: 33.33%; /* ให้ทั้ง 3 กล่องกว้างเท่ากัน */
                         }}
                         .summary-box h3 {{
                             margin-top: 0; 
@@ -331,7 +336,6 @@ if df is not None:
                     </head>
                     <body>
                         
-                        <!-- ส่วนหัวใหม่ (ตารางป้องกันการทับเส้น) -->
                         <table class="header-table">
                             <tr>
                                 <td class="header-logo">
@@ -341,24 +345,24 @@ if df is not None:
                                 <td>
                                     <h1>{title_text}</h1>
                                 </td>
-                                <td style="width: 180px;"></td> <!-- ช่องว่างฝั่งขวาเพื่อดันข้อความให้อยู่กึ่งกลางพอดี -->
+                                <td style="width: 180px;"></td>
                             </tr>
                         </table>
                         
                         <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
                             <tr>
-                                <td class="summary-box" style="width: 30%; vertical-align: top;">
+                                <td class="summary-box" style="vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
                                     <p style="margin: 10px 0 0 0; line-height: 1.8;">
                                         <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})<br>
                                         <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})
                                     </p>
                                 </td>
-                                <td class="summary-box" style="width: 35%; text-align: center;">
+                                <td class="summary-box" style="text-align: center;">
                                     <h3 style="text-align: left;">สรุปการวินิจฉัยโรค (Dx)</h3>
                                     {chart_img_tag}
                                 </td>
-                                <td class="summary-box" style="width: 35%; text-align: center;">
+                                <td class="summary-box" style="text-align: center;">
                                     <h3 style="text-align: left;">สรุปเคสสีตามระดับ</h3>
                                     {level_chart_img_tag}
                                 </td>
@@ -387,7 +391,6 @@ if df is not None:
                             <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <!-- ปรับไม่ให้ตัวหนาแล้ว -->
                                 <p style="margin: 0; font-size: 13pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
                                 <p style="margin: 5px 0 0 0; color: #475569;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
