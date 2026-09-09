@@ -70,7 +70,7 @@ if df is not None:
                             
                         if gdrive_id:
                             direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
-                            img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;"/>'
+                            img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"/>'
                         else:
                             img_tag = "-"
                         
@@ -78,9 +78,14 @@ if df is not None:
                         doc = str(row.get('แพทย์', '')).replace('nan', '')
                         
                         html_rows += f"""<tr>
-                            <td style="text-align:center;">{row_num}</td><td>{name}</td><td>{status}</td>
-                            <td>{dx}</td><td>{symptom}</td><td style="text-align:center;">{img_tag}</td>
-                            <td>{appt}</td><td>{doc}</td>
+                            <td style="text-align:center;">{row_num}</td>
+                            <td style="font-weight:bold; color:#1e293b;">{name}</td>
+                            <td>{status}</td>
+                            <td>{dx}</td>
+                            <td>{symptom}</td>
+                            <td style="text-align:center;">{img_tag}</td>
+                            <td style="color:#0369a1;">{appt}</td>
+                            <td>{doc}</td>
                         </tr>"""
 
                     filtered_df['สถานะ'] = filtered_df['สถานะ'].astype(str).str.strip()
@@ -95,71 +100,143 @@ if df is not None:
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                     dx_counts = filtered_df['Dx'].value_counts()
-                    dx_html = "".join([f"<li><strong>{k}</strong>: {v} ราย</li>" for k, v in dx_counts.items() if str(k).lower() != 'nan'])
+                    dx_html = "".join([f"<li style='margin-bottom:4px;'><strong>{k}</strong>: {v} ราย</li>" for k, v in dx_counts.items() if str(k).lower() != 'nan'])
 
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ
+                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ (ดีไซน์ใหม่)
                     bottom_sections = ""
                     if problem_text.strip():
                         bottom_sections += f"""
-                        <div class="summary-box" style="margin-top: 15px;">
-                            <h3 style="color: #c0392b;">ปัญหา / อุปสรรค</h3>
-                            <p style="margin: 0; white-space: pre-line;">{problem_text}</p>
+                        <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 15px; margin-top: 20px; border-radius: 4px;">
+                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 13pt;">⚠️ ปัญหา / อุปสรรค</h3>
+                            <p style="margin: 0; line-height: 1.6; white-space: pre-line;">{problem_text}</p>
                         </div>
                         """
                     if suggestion_text.strip():
                         bottom_sections += f"""
-                        <div class="summary-box" style="margin-top: 15px;">
-                            <h3 style="color: #27ae60;">ข้อเสนอแนะ</h3>
-                            <p style="margin: 0; white-space: pre-line;">{suggestion_text}</p>
+                        <div style="background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                            <h3 style="color: #15803d; margin-top: 0; font-size: 13pt;">💡 ข้อเสนอแนะ</h3>
+                            <p style="margin: 0; line-height: 1.6; white-space: pre-line;">{suggestion_text}</p>
                         </div>
                         """
 
+                    # HTML หลัก พร้อม CSS ที่ออกแบบใหม่
                     html_content = f"""
                     <!DOCTYPE html>
                     <html lang="th">
                     <head>
                     <meta charset="UTF-8">
-                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                     <style>
                         @page {{ size: A4 landscape; margin: 15mm; }}
-                        body {{ font-family: 'Sarabun', sans-serif; font-size: 11pt; }}
-                        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                        th, td {{ border: 1px solid #bdc3c7; padding: 6px; vertical-align: middle; }}
-                        th {{ background-color: #34495e; color: white; text-align: center; }}
-                        .summary-box {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; }}
-                        .summary-box h3 {{ margin-top: 0; color: #2980b9; }}
-                        .signature-section {{ margin-top: 30px; text-align: left; page-break-inside: avoid; }}
+                        body {{ 
+                            font-family: 'Sarabun', sans-serif; 
+                            font-size: 11pt; 
+                            color: #334155; 
+                            line-height: 1.5;
+                        }}
+                        h1 {{ 
+                            text-align: center; 
+                            color: #0f172a; 
+                            border-bottom: 2px solid #cbd5e1; 
+                            padding-bottom: 10px; 
+                            margin-bottom: 25px;
+                            font-size: 20pt;
+                        }}
+                        
+                        /* Layout สำหรับกล่องสรุป */
+                        .summary-container {{
+                            width: 100%;
+                            border-collapse: separate;
+                            border-spacing: 15px 0; /* ระยะห่างระหว่างกล่องซ้ายขวา */
+                            margin-bottom: 25px;
+                        }}
+                        .summary-box {{
+                            background-color: #f8fafc;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 8px;
+                            padding: 15px 20px;
+                            vertical-align: top;
+                            width: 50%;
+                        }}
+                        .summary-box h3 {{
+                            margin-top: 0; 
+                            color: #0369a1; 
+                            font-size: 13pt;
+                            border-bottom: 1px solid #cbd5e1;
+                            padding-bottom: 8px;
+                            margin-bottom: 12px;
+                        }}
+                        .summary-box ul {{
+                            margin: 0;
+                            padding-left: 20px;
+                        }}
+
+                        /* ดีไซน์ตาราง */
+                        .data-table {{ 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-top: 10px;
+                        }}
+                        .data-table th, .data-table td {{ 
+                            padding: 10px 8px; 
+                            vertical-align: middle; 
+                        }}
+                        .data-table th {{ 
+                            background-color: #1e293b; 
+                            color: #ffffff; 
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11pt;
+                        }}
+                        .data-table td {{
+                            border-bottom: 1px solid #e2e8f0;
+                        }}
+                        .data-table tr:nth-child(even) {{ 
+                            background-color: #f8fafc; 
+                        }}
+
+                        /* ส่วนลงนาม */
+                        .signature-section {{ 
+                            margin-top: 40px; 
+                            text-align: left; 
+                            page-break-inside: avoid; 
+                        }}
                     </style>
                     </head>
                     <body>
-                        <h1 style="text-align:center;">{title_text}</h1>
-                        <div class="summary-box">
-                            <table style="border: none; margin-top:0;">
-                                <tr style="border: none;">
-                                    <td style="border: none; vertical-align: top; width: 50%;">
-                                        <h3>สรุปสถานะผู้ป่วย</h3>
-                                        <ul>
-                                            <li><strong>รายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})</li>
-                                            <li><strong>รายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})</li>
-                                        </ul>
-                                    </td>
-                                    <td style="border: none; vertical-align: top; width: 50%;">
-                                        <h3>สรุปการวินิจฉัยโรค (Dx)</h3>
-                                        <ul style="column-count: 2;">{dx_html}</ul>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
+                        <h1>{title_text}</h1>
+                        
+                        <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
+                            <tr>
+                                <td class="summary-box">
+                                    <h3>📊 สรุปสถานะผู้ป่วย</h3>
+                                    <ul>
+                                        <li style="margin-bottom:4px;"><strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})</li>
+                                        <li><strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})</li>
+                                    </ul>
+                                </td>
+                                <td class="summary-box">
+                                    <h3>🩺 สรุปการวินิจฉัยโรค (Dx)</h3>
+                                    <ul style="column-count: 2; column-gap: 20px;">
+                                        {dx_html}
+                                    </ul>
+                                </td>
+                            </tr>
+                        </table>
 
-                        <table>
+                        <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 5%;">ลำดับ</th><th style="width: 15%;">ชื่อ-สกุล</th>
-                                    <th style="width: 8%;">สถานะ</th><th style="width: 10%;">Dx</th>
-                                    <th style="width: 32%;">อาการปัจจุบัน</th><th style="width: 5%;">ระดับ</th>
-                                    <th style="width: 10%;">นัด</th><th style="width: 15%;">แพทย์</th>
+                                    <th style="width: 5%;">ที่</th>
+                                    <th style="width: 16%;">ชื่อ-สกุล</th>
+                                    <th style="width: 8%;">สถานะ</th>
+                                    <th style="width: 10%;">Dx</th>
+                                    <th style="width: 32%;">อาการปัจจุบัน</th>
+                                    <th style="width: 6%;">ระดับ</th>
+                                    <th style="width: 10%;">นัดครั้งถัดไป</th>
+                                    <th style="width: 13%;">แพทย์</th>
                                 </tr>
                             </thead>
                             <tbody>{html_rows}</tbody>
@@ -167,13 +244,12 @@ if df is not None:
 
                         {bottom_sections}
 
-                        <!-- ส่วนลงนามท้ายกระดาษ (ชิดซ้าย และเว้น 3 บรรทัด, จัดชื่อและตำแหน่งให้อยู่กึ่งกลางซึ่งกันและกัน) -->
                         <div class="signature-section">
-                            <p style="margin-bottom: 15px;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
+                            <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <p style="margin: 0; font-weight: bold;">นางสาวเดือนนภา เบี้ยชาติไทย</p>
-                                <p style="margin: 5px 0 0 0;">นักจิตวิทยาปฏิบัติการ</p>
+                                <p style="margin: 0; font-weight: bold; font-size: 12pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
+                                <p style="margin: 5px 0 0 0; color: #475569;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
                     </body>
