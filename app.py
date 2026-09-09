@@ -3,10 +3,11 @@ import pandas as pd
 import base64
 from weasyprint import HTML
 import io
+import re
 
 st.set_page_config(page_title="ระบบสร้างรายงาน PDF", page_icon="📄", layout="wide")
 
-st.title("📄 ระบบสร้างรายงาน Telepsychaiatry (PDF)")
+st.title("📄 ระบบสร้างรายงาน Telepsychiatry (PDF)")
 st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF")
 
 # URL ของ Google Sheet (รูปแบบส่งออกเป็น CSV)
@@ -51,36 +52,38 @@ if df is not None:
                     st.warning("ไม่พบข้อมูลในวันที่เลือก")
                 else:
                     html_rows = ""
-                    for idx, row in filtered_df.iterrows():
-                        no = idx + 1
+                    # ใช้ enumerate เพื่อจัดลำดับที่ 1, 2, 3... ใหม่ตามตารางที่กรองแล้ว
+                    for row_num, (idx, row) in enumerate(filtered_df.iterrows(), start=1):
                         name = str(row.get('ชื่อ-สกุล', '')).replace('nan', '')
                         status = str(row.get('สถานะ', '')).replace('nan', '')
                         dx = str(row.get('Dx', '')).replace('nan', '')
                         symptom = str(row.get('อาการปัจจุบัน', '')).replace('nan', '')
                         
-                        face_url = str(row.get('หน้า', ''))
+                        face_url = str(row.get('หน้า', '')).strip()
                         
-                        # 🎨 ปรับแก้สีตามลิงก์ที่กำหนด
-                        if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url:
-                            color = "#F44336" # แดง
-                        elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url:
-                            color = "#FF9800" # ส้ม
-                        elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url:
-                            color = "#FFEB3B" # เหลือง
-                        elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url:
-                            color = "#4CAF50" # เขียว
-                        else:
-                            color = "#9E9E9E" # เทา
+                        # 🖼️ แปลงลิงก์ Google Drive เป็นลิงก์สำหรับแสดงรูปภาพโดยตรง
+                        # ค้นหา ID ของไฟล์จากลิงก์
+                        match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
+                        match2 = re.search(r'id=([a-zA-Z0-9_-]+)', face_url)
+                        
+                        gdrive_id = None
+                        if match1:
+                            gdrive_id = match1.group(1)
+                        elif match2:
+                            gdrive_id = match2.group(1)
                             
-                        svg = f'''<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="{color}" stroke="#333" stroke-width="1"/></svg>'''
-                        b64_svg = base64.b64encode(svg.encode('utf-8')).decode('utf-8')
-                        img_tag = f'<img src="data:image/svg+xml;base64,{b64_svg}" style="width:20px;height:20px;"/>'
+                        if gdrive_id:
+                            # ใช้ URL พิเศษของ Google Drive สำหรับดาวน์โหลด/แสดงรูปภาพ
+                            direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
+                            img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;"/>'
+                        else:
+                            img_tag = "-" # ถ้าไม่มีลิงก์หรือหา ID ไม่เจอ ให้ใส่เครื่องหมายขีด
                         
                         appt = str(row.get('นัด', '')).replace('nan', '')
                         doc = str(row.get('แพทย์', '')).replace('nan', '')
                         
                         html_rows += f"""<tr>
-                            <td style="text-align:center;">{no}</td><td>{name}</td><td>{status}</td>
+                            <td style="text-align:center;">{row_num}</td><td>{name}</td><td>{status}</td>
                             <td>{dx}</td><td>{symptom}</td><td style="text-align:center;">{img_tag}</td>
                             <td>{appt}</td><td>{doc}</td>
                         </tr>"""
@@ -100,7 +103,7 @@ if df is not None:
                     dx_html = "".join([f"<li><strong>{k}</strong>: {v} ราย</li>" for k, v in dx_counts.items() if str(k).lower() != 'nan'])
 
                     # 📝 ตั้งชื่อหัวข้อรายงาน
-                    title_text = f"รายงาน Telepsychaiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychaiatry (ทั้งหมด)"
+                    title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
                     html_content = f"""
                     <!DOCTYPE html>
@@ -112,7 +115,7 @@ if df is not None:
                         @page {{ size: A4 landscape; margin: 15mm; }}
                         body {{ font-family: 'Sarabun', sans-serif; font-size: 11pt; }}
                         table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                        th, td {{ border: 1px solid #bdc3c7; padding: 6px; }}
+                        th, td {{ border: 1px solid #bdc3c7; padding: 6px; vertical-align: middle; }}
                         th {{ background-color: #34495e; color: white; text-align: center; }}
                         .summary-box {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; }}
                         .summary-box h3 {{ margin-top: 0; color: #2980b9; }}
