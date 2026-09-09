@@ -1,3 +1,4 @@
 streamlit
 pandas
-weasyprint
+cffi
+weasyprint==52.5
