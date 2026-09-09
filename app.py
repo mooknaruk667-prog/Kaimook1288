@@ -73,6 +73,7 @@ if df is not None:
                         elif match2:
                             gdrive_id = match2.group(1)
                             
+                        # ดึงภาพตรงจาก Google Drive ใส่ในตาราง
                         if gdrive_id:
                             direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
                             img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"/>'
@@ -105,63 +106,95 @@ if df is not None:
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                     # ==========================================
-                    # 📊 ส่วนการสร้างกราฟวงกลมสำหรับ Dx
+                    # 📊 1. กราฟวงกลมสำหรับ Dx
                     # ==========================================
                     dx_counts = filtered_df['Dx'].value_counts()
                     chart_img_tag = ""
-                    dx_html = ""
                     
-                    if not dx_counts.empty:
-                        # 1. วาดกราฟวงกลมด้วย matplotlib
-                        fig, ax = plt.subplots(figsize=(3, 3))
-                        wedges, texts, autotexts = ax.pie(
-                            dx_counts.values, 
-                            autopct='%1.1f%%', 
+                    # ตัดค่าว่างทิ้ง
+                    valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
+                    if valid_dx:
+                        # สร้างกราฟวงกลม พร้อมเส้นชี้และตัวอักษร Dx: จำนวน
+                        fig1, ax1 = plt.subplots(figsize=(2.5, 2.5))
+                        labels1 = [f"{k}: {v}" for k, v in valid_dx.items()]
+                        
+                        ax1.pie(
+                            valid_dx.values(), 
+                            labels=labels1, 
                             startangle=90,
-                            textprops={'fontsize': 9, 'color': 'white', 'weight': 'bold'},
-                            colors=plt.cm.tab20.colors # ใช้ชุดสีที่มีให้เลือก 20 สี
+                            textprops={'fontsize': 10, 'color': '#1e293b'},
+                            colors=plt.cm.tab20.colors
                         )
-                        ax.axis('equal') # ให้กราฟเป็นวงกลมสมบูรณ์
-                        
-                        # 2. บันทึกภาพกราฟเป็น Base64
-                        img_buf = io.BytesIO()
-                        plt.savefig(img_buf, format='png', bbox_inches='tight', transparent=True, dpi=120)
-                        img_buf.seek(0)
-                        chart_base64 = base64.b64encode(img_buf.read()).decode('utf-8')
-                        plt.close(fig)
-                        
-                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
-                        
-                        # 3. สร้างรายการคำอธิบาย (Legend) พร้อมจุดสีให้ตรงกับกราฟ
-                        for i, (k, v) in enumerate(dx_counts.items()):
-                            if str(k).lower() != 'nan':
-                                # แปลงสีจากกราฟมาเป็นโค้ดสี HEX
-                                color_hex = mcolors.to_hex(wedges[i].get_facecolor())
-                                dx_html += f"""
-                                <li style='margin-bottom:6px;'>
-                                    <span style='display:inline-block; width:12px; height:12px; background-color:{color_hex}; border-radius:50%; margin-right:8px; vertical-align:middle;'></span>
-                                    <strong>{k}</strong>: {v} ราย
-                                </li>
-                                """
+                        ax1.axis('equal') 
+                        img_buf1 = io.BytesIO()
+                        plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
+                        img_buf1.seek(0)
+                        chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
+                        plt.close(fig1)
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:170px; display:block; margin:auto;"/>'
                     else:
                         chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล Dx</p>"
-                        dx_html = "<li>ไม่มีข้อมูล</li>"
+
+                    # ==========================================
+                    # 📊 2. กราฟวงกลมสำหรับ ระดับสี (แดง, ส้ม, เหลือง, เขียว)
+                    # ==========================================
+                    color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
+                    level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
+                    
+                    for face_url in filtered_df['หน้า'].astype(str):
+                        if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: level_counts['แดง'] += 1
+                        elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: level_counts['ส้ม'] += 1
+                        elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url: level_counts['เหลือง'] += 1
+                        elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url: level_counts['เขียว'] += 1
+                        else: level_counts['เทา'] += 1
+                        
+                    active_levels = {k: v for k, v in level_counts.items() if v > 0}
+                    level_chart_img_tag = ""
+                    
+                    if active_levels:
+                        fig2, ax2 = plt.subplots(figsize=(2.5, 2.5))
+                        colors2 = [color_map[k] for k in active_levels.keys()]
+                        labels2 = [f"{v}" for v in active_levels.values()] # ใช้แค่ตัวเลข
+                        
+                        wedges2, texts2 = ax2.pie(
+                            active_levels.values(),
+                            labels=labels2,
+                            labeldistance=0.5, # ใส่ตัวเลขเข้าไปข้างในสี
+                            startangle=90,
+                            textprops={'fontsize': 12, 'color': 'white', 'weight': 'bold'},
+                            colors=colors2
+                        )
+                        
+                        # เปลี่ยนสีฟอนต์สีเหลืองให้เป็นสีดำจะได้อ่านง่าย
+                        for i, k in enumerate(active_levels.keys()):
+                            if k == 'เหลือง':
+                                texts2[i].set_color('#1e293b') 
+                                
+                        ax2.axis('equal')
+                        img_buf2 = io.BytesIO()
+                        plt.savefig(img_buf2, format='png', bbox_inches='tight', transparent=True, dpi=120)
+                        img_buf2.seek(0)
+                        chart_base64_2 = base64.b64encode(img_buf2.read()).decode('utf-8')
+                        plt.close(fig2)
+                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:170px; display:block; margin:auto;"/>'
+                    else:
+                        level_chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล</p>"
 
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ
+                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ 
                     bottom_sections = ""
                     if problem_text.strip():
                         bottom_sections += f"""
                         <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 15px; margin-top: 20px; border-radius: 4px;">
-                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 13pt;">⚠️ ปัญหา / อุปสรรค</h3>
+                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 13pt;">ปัญหา / อุปสรรค</h3>
                             <p style="margin: 0; line-height: 1.6; white-space: pre-line;">{problem_text}</p>
                         </div>
                         """
                     if suggestion_text.strip():
                         bottom_sections += f"""
                         <div style="background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 4px;">
-                            <h3 style="color: #15803d; margin-top: 0; font-size: 13pt;">💡 ข้อเสนอแนะ</h3>
+                            <h3 style="color: #15803d; margin-top: 0; font-size: 13pt;">ข้อเสนอแนะ</h3>
                             <p style="margin: 0; line-height: 1.6; white-space: pre-line;">{suggestion_text}</p>
                         </div>
                         """
@@ -250,26 +283,24 @@ if df is not None:
                         <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
                             <tr>
                                 <!-- ส่วนสรุปจำนวนผู้ป่วย -->
-                                <td class="summary-box" style="width: 30%; vertical-align: top;">
-                                    <h3>📊 สรุปสถานะผู้ป่วย</h3>
+                                <td class="summary-box" style="width: 34%; vertical-align: top;">
+                                    <h3>สรุปสถานะผู้ป่วย</h3>
                                     <ul style="padding-left: 20px;">
                                         <li style="margin-bottom:4px;"><strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})</li>
                                         <li><strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})</li>
                                     </ul>
                                 </td>
                                 
-                                <!-- ส่วนแสดงกราฟวงกลม -->
-                                <td class="summary-box" style="width: 25%; text-align: center;">
-                                    <h3 style="text-align: left;">📈 สัดส่วน Dx</h3>
+                                <!-- ส่วนแสดงกราฟวงกลม Dx -->
+                                <td class="summary-box" style="width: 33%; text-align: center;">
+                                    <h3 style="text-align: left;">สรุปการวินิจฉัยโรค (Dx)</h3>
                                     {chart_img_tag}
                                 </td>
                                 
-                                <!-- ส่วนแสดงคำอธิบายกราฟ (Legend) -->
-                                <td class="summary-box" style="width: 45%; vertical-align: top;">
-                                    <h3>🩺 สรุปการวินิจฉัยโรค (Dx)</h3>
-                                    <ul style="list-style-type: none; padding-left: 0; column-count: 2; column-gap: 15px;">
-                                        {dx_html}
-                                    </ul>
+                                <!-- ส่วนแสดงกราฟวงกลม สรุปเคสสี -->
+                                <td class="summary-box" style="width: 33%; text-align: center;">
+                                    <h3 style="text-align: left;">สรุปเคสสีตามระดับ</h3>
+                                    {level_chart_img_tag}
                                 </td>
                             </tr>
                         </table>
