@@ -167,12 +167,14 @@ if df is not None:
 
                         {bottom_sections}
 
-                        <!-- ส่วนลงนามท้ายกระดาษ (ชิดซ้าย และเว้น 3 บรรทัด) -->
+                        <!-- ส่วนลงนามท้ายกระดาษ (ชิดซ้าย และเว้น 3 บรรทัด, จัดชื่อและตำแหน่งให้อยู่กึ่งกลางซึ่งกันและกัน) -->
                         <div class="signature-section">
                             <p style="margin-bottom: 15px;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
                             <br><br><br>
-                            <p style="margin: 0; font-weight: bold;">นางสาวเดือนนภา เบี้ยชาติไทย</p>
-                            <p style="margin: 5px 0 0 0;">นักจิตวิทยาปฏิบัติการ</p>
+                            <div style="display: inline-block; text-align: center;">
+                                <p style="margin: 0; font-weight: bold;">นางสาวเดือนนภา เบี้ยชาติไทย</p>
+                                <p style="margin: 5px 0 0 0;">นักจิตวิทยาปฏิบัติการ</p>
+                            </div>
                         </div>
                     </body>
                     </html>
