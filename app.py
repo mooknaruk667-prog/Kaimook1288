@@ -141,7 +141,7 @@ if df is not None:
                             labels=labels1, 
                             labeldistance=0.5, 
                             startangle=90,
-                            # ตั้งค่า font weight เป็น normal และใช้สีเข้ม
+                            # ตัวหนังสือธรรมดา ไม่หนา และเป็นสีดำเทา
                             textprops={'fontsize': 10, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=plt.cm.tab20.colors,
                             radius=1 
@@ -183,7 +183,7 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            # ตั้งค่า font weight เป็น normal และใช้สีเข้ม
+                            # ตัวหนังสือธรรมดา ไม่หนา และเป็นสีดำเทา
                             textprops={'fontsize': 10, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=colors2,
                             radius=1 
@@ -231,7 +231,8 @@ if df is not None:
                     <style>
                         @page {{ 
                             size: A4 landscape; 
-                            margin: 15mm; 
+                            /* ตั้งค่าขอบกระดาษ: บน 10mm (1ซม.), ขวา 15mm, ล่าง 15mm, ซ้าย 15mm */
+                            margin: 10mm 15mm 15mm 15mm; 
                         }}
                         body {{ 
                             font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; 
@@ -240,15 +241,21 @@ if df is not None:
                             line-height: 1.5;
                         }}
                         
-                        /* โลโก้ ฝั่งซ้าย และห่างจากขอบกระดาษซ้าย 3 ซม. ห่างจากขอบบน 1 ซม. */
-                        /* margin-top: -5mm (หน้ากระดาษ 15mm - 5mm = 10mm คือ 1 ซม.) */
-                        /* margin-left: 15mm (หน้ากระดาษ 15mm + 15mm = 30mm คือ 3 ซม.) */
+                        /* โครงสร้างส่วนหัว (Header) ใหม่ ใช้ตารางเพื่อไม่ให้ทับเส้น */
+                        .header-table {{
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 25px;
+                            border-bottom: 2px solid #cbd5e1; /* เส้นใต้ขีดผ่านทั้งโลโก้และหัวข้อ */
+                        }}
+                        .header-table td {{
+                            border: none;
+                            padding-bottom: 10px;
+                            vertical-align: bottom;
+                        }}
                         .header-logo {{
-                            position: absolute;
-                            top: -5mm; 
-                            left: 15mm; 
-                            text-align: center;
                             width: 180px;
+                            text-align: center;
                         }}
                         .header-logo img {{
                             width: 65px; 
@@ -259,19 +266,15 @@ if df is not None:
                             font-weight: bold;
                             color: #1e293b;
                             margin-top: 5px;
+                            margin-bottom: 0;
                             line-height: 1.1;
                         }}
-
                         h1 {{ 
                             text-align: center; 
                             color: #0f172a; 
-                            border-bottom: 2px solid #cbd5e1; 
-                            padding-bottom: 10px; 
-                            margin-top: 20px;
-                            margin-bottom: 25px;
+                            margin: 0;
+                            padding: 0;
                             font-size: 22pt;
-                            padding-left: 180px; 
-                            padding-right: 180px; 
                         }}
                         
                         .summary-container {{
@@ -327,12 +330,20 @@ if df is not None:
                     </style>
                     </head>
                     <body>
-                        <div class="header-logo">
-                            <img src="{logo_src}" alt="Logo">
-                            <p>สถานพยาบาลเรือนจำ<br>จังหวัดบุรีรัมย์</p>
-                        </div>
-
-                        <h1>{title_text}</h1>
+                        
+                        <!-- ส่วนหัวใหม่ (ตารางป้องกันการทับเส้น) -->
+                        <table class="header-table">
+                            <tr>
+                                <td class="header-logo">
+                                    <img src="{logo_src}" alt="Logo">
+                                    <p>สถานพยาบาลเรือนจำ<br>จังหวัดบุรีรัมย์</p>
+                                </td>
+                                <td>
+                                    <h1>{title_text}</h1>
+                                </td>
+                                <td style="width: 180px;"></td> <!-- ช่องว่างฝั่งขวาเพื่อดันข้อความให้อยู่กึ่งกลางพอดี -->
+                            </tr>
+                        </table>
                         
                         <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
                             <tr>
@@ -376,7 +387,8 @@ if df is not None:
                             <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <p style="margin: 0; font-weight: bold; font-size: 13pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
+                                <!-- ปรับไม่ให้ตัวหนาแล้ว -->
+                                <p style="margin: 0; font-size: 13pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
                                 <p style="margin: 5px 0 0 0; color: #475569;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
