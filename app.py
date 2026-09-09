@@ -4,6 +4,11 @@ import base64
 from weasyprint import HTML
 import io
 import re
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+# ตั้งค่าให้วาดกราฟเบื้องหลัง (ไม่ต้องเปิดหน้าต่าง) สำหรับรันบนเซิร์ฟเวอร์
+plt.switch_backend('Agg')
 
 st.set_page_config(page_title="ระบบสร้างรายงาน PDF", page_icon="📄", layout="wide")
 
@@ -99,12 +104,52 @@ if df is not None:
                     new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
+                    # ==========================================
+                    # 📊 ส่วนการสร้างกราฟวงกลมสำหรับ Dx
+                    # ==========================================
                     dx_counts = filtered_df['Dx'].value_counts()
-                    dx_html = "".join([f"<li style='margin-bottom:4px;'><strong>{k}</strong>: {v} ราย</li>" for k, v in dx_counts.items() if str(k).lower() != 'nan'])
+                    chart_img_tag = ""
+                    dx_html = ""
+                    
+                    if not dx_counts.empty:
+                        # 1. วาดกราฟวงกลมด้วย matplotlib
+                        fig, ax = plt.subplots(figsize=(3, 3))
+                        wedges, texts, autotexts = ax.pie(
+                            dx_counts.values, 
+                            autopct='%1.1f%%', 
+                            startangle=90,
+                            textprops={'fontsize': 9, 'color': 'white', 'weight': 'bold'},
+                            colors=plt.cm.tab20.colors # ใช้ชุดสีที่มีให้เลือก 20 สี
+                        )
+                        ax.axis('equal') # ให้กราฟเป็นวงกลมสมบูรณ์
+                        
+                        # 2. บันทึกภาพกราฟเป็น Base64
+                        img_buf = io.BytesIO()
+                        plt.savefig(img_buf, format='png', bbox_inches='tight', transparent=True, dpi=120)
+                        img_buf.seek(0)
+                        chart_base64 = base64.b64encode(img_buf.read()).decode('utf-8')
+                        plt.close(fig)
+                        
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
+                        
+                        # 3. สร้างรายการคำอธิบาย (Legend) พร้อมจุดสีให้ตรงกับกราฟ
+                        for i, (k, v) in enumerate(dx_counts.items()):
+                            if str(k).lower() != 'nan':
+                                # แปลงสีจากกราฟมาเป็นโค้ดสี HEX
+                                color_hex = mcolors.to_hex(wedges[i].get_facecolor())
+                                dx_html += f"""
+                                <li style='margin-bottom:6px;'>
+                                    <span style='display:inline-block; width:12px; height:12px; background-color:{color_hex}; border-radius:50%; margin-right:8px; vertical-align:middle;'></span>
+                                    <strong>{k}</strong>: {v} ราย
+                                </li>
+                                """
+                    else:
+                        chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล Dx</p>"
+                        dx_html = "<li>ไม่มีข้อมูล</li>"
 
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ (ดีไซน์ใหม่)
+                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ
                     bottom_sections = ""
                     if problem_text.strip():
                         bottom_sections += f"""
@@ -121,7 +166,6 @@ if df is not None:
                         </div>
                         """
 
-                    # HTML หลัก พร้อม CSS ที่ออกแบบใหม่
                     html_content = f"""
                     <!DOCTYPE html>
                     <html lang="th">
@@ -149,7 +193,7 @@ if df is not None:
                         .summary-container {{
                             width: 100%;
                             border-collapse: separate;
-                            border-spacing: 15px 0; /* ระยะห่างระหว่างกล่องซ้ายขวา */
+                            border-spacing: 15px 0; 
                             margin-bottom: 25px;
                         }}
                         .summary-box {{
@@ -157,8 +201,7 @@ if df is not None:
                             border: 1px solid #e2e8f0;
                             border-radius: 8px;
                             padding: 15px 20px;
-                            vertical-align: top;
-                            width: 50%;
+                            vertical-align: middle;
                         }}
                         .summary-box h3 {{
                             margin-top: 0; 
@@ -167,10 +210,6 @@ if df is not None:
                             border-bottom: 1px solid #cbd5e1;
                             padding-bottom: 8px;
                             margin-bottom: 12px;
-                        }}
-                        .summary-box ul {{
-                            margin: 0;
-                            padding-left: 20px;
                         }}
 
                         /* ดีไซน์ตาราง */
@@ -210,16 +249,25 @@ if df is not None:
                         
                         <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
                             <tr>
-                                <td class="summary-box">
+                                <!-- ส่วนสรุปจำนวนผู้ป่วย -->
+                                <td class="summary-box" style="width: 30%; vertical-align: top;">
                                     <h3>📊 สรุปสถานะผู้ป่วย</h3>
-                                    <ul>
+                                    <ul style="padding-left: 20px;">
                                         <li style="margin-bottom:4px;"><strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})</li>
                                         <li><strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})</li>
                                     </ul>
                                 </td>
-                                <td class="summary-box">
+                                
+                                <!-- ส่วนแสดงกราฟวงกลม -->
+                                <td class="summary-box" style="width: 25%; text-align: center;">
+                                    <h3 style="text-align: left;">📈 สัดส่วน Dx</h3>
+                                    {chart_img_tag}
+                                </td>
+                                
+                                <!-- ส่วนแสดงคำอธิบายกราฟ (Legend) -->
+                                <td class="summary-box" style="width: 45%; vertical-align: top;">
                                     <h3>🩺 สรุปการวินิจฉัยโรค (Dx)</h3>
-                                    <ul style="column-count: 2; column-gap: 20px;">
+                                    <ul style="list-style-type: none; padding-left: 0; column-count: 2; column-gap: 15px;">
                                         {dx_html}
                                     </ul>
                                 </td>
