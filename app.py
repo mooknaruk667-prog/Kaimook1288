@@ -73,7 +73,6 @@ if df is not None:
                         elif match2:
                             gdrive_id = match2.group(1)
                             
-                        # ดึงภาพตรงจาก Google Drive ใส่ในตาราง
                         if gdrive_id:
                             direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
                             img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"/>'
@@ -111,12 +110,13 @@ if df is not None:
                     dx_counts = filtered_df['Dx'].value_counts()
                     chart_img_tag = ""
                     
-                    # ตัดค่าว่างทิ้ง
                     valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                     if valid_dx:
-                        # สร้างกราฟวงกลม พร้อมเส้นชี้และตัวอักษร Dx: จำนวน
                         fig1, ax1 = plt.subplots(figsize=(2.5, 2.5))
-                        labels1 = [f"{k}: {v}" for k, v in valid_dx.items()]
+                        total_dx = sum(valid_dx.values())
+                        
+                        # สร้าง label แบบ "F15: 4 (50.0%)"
+                        labels1 = [f"{k}: {v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
                         
                         ax1.pie(
                             valid_dx.values(), 
@@ -131,12 +131,12 @@ if df is not None:
                         img_buf1.seek(0)
                         chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
                         plt.close(fig1)
-                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:170px; display:block; margin:auto;"/>'
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
                     else:
                         chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล Dx</p>"
 
                     # ==========================================
-                    # 📊 2. กราฟวงกลมสำหรับ ระดับสี (แดง, ส้ม, เหลือง, เขียว)
+                    # 📊 2. กราฟวงกลมสำหรับ ระดับสี (แดง, ส้ม, เหลือง, เขียว, เทา)
                     # ==========================================
                     color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                     level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
@@ -154,21 +154,21 @@ if df is not None:
                     if active_levels:
                         fig2, ax2 = plt.subplots(figsize=(2.5, 2.5))
                         colors2 = [color_map[k] for k in active_levels.keys()]
-                        labels2 = [f"{v}" for v in active_levels.values()] # ใช้แค่ตัวเลข
+                        total_levels = sum(active_levels.values())
                         
-                        wedges2, texts2 = ax2.pie(
+                        # วาดวงกลมและแสดงข้อมูล จำนวน (เปอร์เซ็นต์) ไว้ด้านในสี
+                        wedges2, texts2, autotexts2 = ax2.pie(
                             active_levels.values(),
-                            labels=labels2,
-                            labeldistance=0.5, # ใส่ตัวเลขเข้าไปข้างในสี
+                            autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
-                            textprops={'fontsize': 12, 'color': 'white', 'weight': 'bold'},
+                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'bold'},
                             colors=colors2
                         )
                         
                         # เปลี่ยนสีฟอนต์สีเหลืองให้เป็นสีดำจะได้อ่านง่าย
                         for i, k in enumerate(active_levels.keys()):
                             if k == 'เหลือง':
-                                texts2[i].set_color('#1e293b') 
+                                autotexts2[i].set_color('#1e293b') 
                                 
                         ax2.axis('equal')
                         img_buf2 = io.BytesIO()
@@ -176,13 +176,13 @@ if df is not None:
                         img_buf2.seek(0)
                         chart_base64_2 = base64.b64encode(img_buf2.read()).decode('utf-8')
                         plt.close(fig2)
-                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:170px; display:block; margin:auto;"/>'
+                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
                     else:
                         level_chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล</p>"
 
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ 
+                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ
                     bottom_sections = ""
                     if problem_text.strip():
                         bottom_sections += f"""
@@ -283,7 +283,7 @@ if df is not None:
                         <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
                             <tr>
                                 <!-- ส่วนสรุปจำนวนผู้ป่วย -->
-                                <td class="summary-box" style="width: 34%; vertical-align: top;">
+                                <td class="summary-box" style="width: 30%; vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
                                     <ul style="padding-left: 20px;">
                                         <li style="margin-bottom:4px;"><strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})</li>
@@ -292,13 +292,13 @@ if df is not None:
                                 </td>
                                 
                                 <!-- ส่วนแสดงกราฟวงกลม Dx -->
-                                <td class="summary-box" style="width: 33%; text-align: center;">
+                                <td class="summary-box" style="width: 35%; text-align: center;">
                                     <h3 style="text-align: left;">สรุปการวินิจฉัยโรค (Dx)</h3>
                                     {chart_img_tag}
                                 </td>
                                 
                                 <!-- ส่วนแสดงกราฟวงกลม สรุปเคสสี -->
-                                <td class="summary-box" style="width: 33%; text-align: center;">
+                                <td class="summary-box" style="width: 35%; text-align: center;">
                                     <h3 style="text-align: left;">สรุปเคสสีตามระดับ</h3>
                                     {level_chart_img_tag}
                                 </td>
