@@ -36,7 +36,7 @@ if df is not None:
         
         selected_date = st.selectbox("📅 เลือกวันที่ (จาก คอลัมน์ 1):", options=unique_dates)
         
-        # 📝 ช่องสำหรับพิมพ์ปัญหา/อุปสรรค์
+        # 📝 ช่องสำหรับพิมพ์ปัญหา/อุปสรรค
         problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
         
         if st.button("🚀 สร้าง PDF", type="primary"):
@@ -98,7 +98,7 @@ if df is not None:
 
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # HTML ส่วนของปัญหา/อุปสรรค (แสดงเฉพาะเมื่อมีการพิมพ์ข้อความ)
+                    # HTML ส่วนของปัญหา/อุปสรรค (ย้ายมาไว้ใต้ตาราง)
                     problem_section = ""
                     if problem_text.strip():
                         problem_section = f"""
@@ -122,7 +122,7 @@ if df is not None:
                         th {{ background-color: #34495e; color: white; text-align: center; }}
                         .summary-box {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; }}
                         .summary-box h3 {{ margin-top: 0; color: #2980b9; }}
-                        .signature-section {{ margin-top: 30px; text-align: center; page-break-inside: avoid; }}
+                        .signature-section {{ margin-top: 30px; text-align: right; page-break-inside: avoid; }}
                     </style>
                     </head>
                     <body>
@@ -144,8 +144,6 @@ if df is not None:
                                 </tr>
                             </table>
                         </div>
-                        
-                        {problem_section}
 
                         <table>
                             <thead>
@@ -159,9 +157,11 @@ if df is not None:
                             <tbody>{html_rows}</tbody>
                         </table>
 
-                        <!-- ส่วนลงนามท้ายกระดาษ (จัดกึ่งกลาง) -->
+                        {problem_section}
+
+                        <!-- ส่วนลงนามท้ายกระดาษ (ชิดขวา และเว้น 3 บรรทัด) -->
                         <div class="signature-section">
-                            <p style="margin-bottom: 15px;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
+                            <p style="margin-bottom: 15px; text-align: left; display: inline-block;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <p style="margin: 0; font-weight: bold;">นางสาวเดือนนภา เบี้ยชาติไทย</p>
                             <p style="margin: 5px 0 0 0;">นักจิตวิทยาปฏิบัติการ</p>
