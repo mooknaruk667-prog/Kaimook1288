@@ -16,10 +16,11 @@ import matplotlib.font_manager as fm
 # ==========================================
 @st.cache_resource
 def setup_thai_font():
-    font_path = "Sarabun-Bold.ttf"
+    font_path = "Sarabun-Regular.ttf"
     if not os.path.exists(font_path):
         try:
-            urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Bold.ttf", font_path)
+            # ใช้ฟอนต์ Sarabun แบบธรรมดา (ไม่หนา) สำหรับกราฟวงกลม
+            urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Regular.ttf", font_path)
         except Exception:
             pass
     try:
@@ -141,12 +142,12 @@ if df is not None:
                             labels=labels1, 
                             labeldistance=0.5, 
                             startangle=90,
-                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'bold', 'ha': 'center'},
+                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'normal', 'ha': 'center'},
                             colors=plt.cm.tab20.colors,
                             radius=1 
                         )
                         for t in texts1:
-                            t.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+                            t.set_path_effects([path_effects.withStroke(linewidth=1.5, foreground='black')])
                             
                         ax1.axis('equal') 
                         img_buf1 = io.BytesIO()
@@ -184,14 +185,14 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'bold', 'ha': 'center'},
+                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'normal', 'ha': 'center'},
                             colors=colors2,
                             radius=1 
                         )
                         for i, k in enumerate(active_levels.keys()):
                             if k == 'เหลือง': autotexts2[i].set_color('#1e293b') 
                         for t in autotexts2:
-                            t.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+                            t.set_path_effects([path_effects.withStroke(linewidth=1.5, foreground='black')])
                                 
                         ax2.axis('equal')
                         img_buf2 = io.BytesIO()
@@ -233,7 +234,10 @@ if df is not None:
                     <meta charset="UTF-8">
                     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                     <style>
-                        @page {{ size: A4 landscape; margin: 15mm; }}
+                        @page {{ 
+                            size: A4 landscape; 
+                            margin: 15mm; 
+                        }}
                         body {{ 
                             font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; 
                             font-size: 12pt; 
@@ -241,16 +245,16 @@ if df is not None:
                             line-height: 1.5;
                         }}
                         
-                        /* โลโก้ มุมบนขวา */
+                        /* โลโก้ ฝั่งซ้าย และห่างจากขอบกระดาษซ้าย 3 เซนติเมตร (margin-left กระดาษ 15mm + 15mm = 30mm) */
                         .header-logo {{
                             position: absolute;
                             top: -10px;
-                            right: 0;
+                            left: 15mm; 
                             text-align: center;
                             width: 180px;
                         }}
                         .header-logo img {{
-                            width: 65px; /* ขนาดของโลโก้ */
+                            width: 65px; 
                             height: auto;
                         }}
                         .header-logo p {{
@@ -269,8 +273,8 @@ if df is not None:
                             margin-top: 20px;
                             margin-bottom: 25px;
                             font-size: 22pt;
-                            padding-right: 180px; /* เว้นที่ให้โลโก้ */
-                            padding-left: 180px;
+                            padding-left: 180px; 
+                            padding-right: 180px; 
                         }}
                         
                         .summary-container {{
@@ -337,10 +341,11 @@ if df is not None:
                             <tr>
                                 <td class="summary-box" style="width: 30%; vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
-                                    <ul style="padding-left: 20px;">
-                                        <li style="margin-bottom:4px;"><strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})</li>
-                                        <li><strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})</li>
-                                    </ul>
+                                    <!-- เปลี่ยนเป็นข้อความ 2 บรรทัด ไม่มี bullet -->
+                                    <p style="margin: 10px 0 0 0; line-height: 1.8;">
+                                        <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})<br>
+                                        <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})
+                                    </p>
                                 </td>
                                 <td class="summary-box" style="width: 35%; text-align: center;">
                                     <h3 style="text-align: left;">สรุปการวินิจฉัยโรค (Dx)</h3>
