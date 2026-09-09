@@ -36,8 +36,9 @@ if df is not None:
         
         selected_date = st.selectbox("📅 เลือกวันที่ (จาก คอลัมน์ 1):", options=unique_dates)
         
-        # 📝 ช่องสำหรับพิมพ์ปัญหา/อุปสรรค
+        # 📝 ช่องสำหรับพิมพ์ปัญหา/อุปสรรค และข้อเสนอแนะ
         problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
+        suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
         
         if st.button("🚀 สร้าง PDF", type="primary"):
             with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
@@ -98,13 +99,20 @@ if df is not None:
 
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # HTML ส่วนของปัญหา/อุปสรรค (ย้ายมาไว้ใต้ตาราง)
-                    problem_section = ""
+                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ
+                    bottom_sections = ""
                     if problem_text.strip():
-                        problem_section = f"""
+                        bottom_sections += f"""
                         <div class="summary-box" style="margin-top: 15px;">
                             <h3 style="color: #c0392b;">ปัญหา / อุปสรรค</h3>
                             <p style="margin: 0; white-space: pre-line;">{problem_text}</p>
+                        </div>
+                        """
+                    if suggestion_text.strip():
+                        bottom_sections += f"""
+                        <div class="summary-box" style="margin-top: 15px;">
+                            <h3 style="color: #27ae60;">ข้อเสนอแนะ</h3>
+                            <p style="margin: 0; white-space: pre-line;">{suggestion_text}</p>
                         </div>
                         """
 
@@ -122,7 +130,7 @@ if df is not None:
                         th {{ background-color: #34495e; color: white; text-align: center; }}
                         .summary-box {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; }}
                         .summary-box h3 {{ margin-top: 0; color: #2980b9; }}
-                        .signature-section {{ margin-top: 30px; text-align: right; page-break-inside: avoid; }}
+                        .signature-section {{ margin-top: 30px; text-align: left; page-break-inside: avoid; }}
                     </style>
                     </head>
                     <body>
@@ -157,11 +165,11 @@ if df is not None:
                             <tbody>{html_rows}</tbody>
                         </table>
 
-                        {problem_section}
+                        {bottom_sections}
 
-                        <!-- ส่วนลงนามท้ายกระดาษ (ชิดขวา และเว้น 3 บรรทัด) -->
+                        <!-- ส่วนลงนามท้ายกระดาษ (ชิดซ้าย และเว้น 3 บรรทัด) -->
                         <div class="signature-section">
-                            <p style="margin-bottom: 15px; text-align: left; display: inline-block;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
+                            <p style="margin-bottom: 15px;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <p style="margin: 0; font-weight: bold;">นางสาวเดือนนภา เบี้ยชาติไทย</p>
                             <p style="margin: 5px 0 0 0;">นักจิตวิทยาปฏิบัติการ</p>
