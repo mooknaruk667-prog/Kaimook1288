@@ -6,7 +6,7 @@ import io
 
 st.set_page_config(page_title="ระบบสร้างรายงาน PDF", page_icon="📄", layout="wide")
 
-st.title("📄 ระบบสร้างรายงานสุขภาพจิต (PDF)")
+st.title("📄 ระบบสร้างรายงาน Telepsychaiatry (PDF)")
 st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF")
 
 # URL ของ Google Sheet (รูปแบบส่งออกเป็น CSV)
@@ -59,14 +59,16 @@ if df is not None:
                         symptom = str(row.get('อาการปัจจุบัน', '')).replace('nan', '')
                         
                         face_url = str(row.get('หน้า', ''))
-                        if "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url:
-                            color = "#4CAF50" # ปกติ (เขียว)
+                        
+                        # 🎨 ปรับแก้สีตามลิงก์ที่กำหนด
+                        if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url:
+                            color = "#F44336" # แดง
                         elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url:
-                            color = "#FFEB3B" # เฝ้าระวัง (เหลือง)
-                        elif "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url:
-                            color = "#F44336" # รุนแรง (แดง)
+                            color = "#FF9800" # ส้ม
+                        elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url:
+                            color = "#FFEB3B" # เหลือง
                         elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url:
-                            color = "#2196F3" # ฟ้า
+                            color = "#4CAF50" # เขียว
                         else:
                             color = "#9E9E9E" # เทา
                             
@@ -97,7 +99,8 @@ if df is not None:
                     dx_counts = filtered_df['Dx'].value_counts()
                     dx_html = "".join([f"<li><strong>{k}</strong>: {v} ราย</li>" for k, v in dx_counts.items() if str(k).lower() != 'nan'])
 
-                    title_text = f"รายงานฐานข้อมูลสุขภาพจิต (วันที่ {selected_date})" if selected_date != "ทั้งหมด" else "รายงานฐานข้อมูลสุขภาพจิต (ทั้งหมด)"
+                    # 📝 ตั้งชื่อหัวข้อรายงาน
+                    title_text = f"รายงาน Telepsychaiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychaiatry (ทั้งหมด)"
 
                     html_content = f"""
                     <!DOCTYPE html>
@@ -155,7 +158,7 @@ if df is not None:
                     st.download_button(
                         label="📥 คลิกที่นี่เพื่อดาวน์โหลดไฟล์ PDF",
                         data=pdf_bytes,
-                        file_name=f"Mental_Health_Report_{selected_date.replace('/', '-') if selected_date != 'ทั้งหมด' else 'All'}.pdf",
+                        file_name=f"Telepsychiatry_Report_{selected_date.replace('/', '-') if selected_date != 'ทั้งหมด' else 'All'}.pdf",
                         mime="application/pdf"
                     )
     else:
