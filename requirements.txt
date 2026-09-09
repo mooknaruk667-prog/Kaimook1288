@@ -1,4 +1,4 @@
 streamlit
 pandas
-cffi
-weasyprint==52.5
+weasyprint
+matplotlib
