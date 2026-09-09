@@ -4,21 +4,45 @@ import base64
 from weasyprint import HTML
 import io
 import re
+import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patheffects as path_effects
+import urllib.request
+import matplotlib.font_manager as fm
 
-# ตั้งค่าให้วาดกราฟเบื้องหลัง (ไม่ต้องเปิดหน้าต่าง) สำหรับรันบนเซิร์ฟเวอร์
+# ==========================================
+# ⚙️ โหลดฟอนต์ Sarabun สำหรับวาดกราฟ
+# ==========================================
+@st.cache_resource
+def setup_thai_font():
+    font_path = "Sarabun-Bold.ttf"
+    if not os.path.exists(font_path):
+        try:
+            urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Bold.ttf", font_path)
+        except Exception:
+            pass
+    try:
+        fm.fontManager.addfont(font_path)
+        plt.rcParams['font.family'] = 'Sarabun'
+    except Exception:
+        pass
+
+setup_thai_font()
 plt.switch_backend('Agg')
 
+# ==========================================
+# 🚀 เริ่มต้นโปรแกรม Streamlit
+# ==========================================
 st.set_page_config(page_title="ระบบสร้างรายงาน PDF", page_icon="📄", layout="wide")
 
 st.title("📄 ระบบสร้างรายงาน Telepsychiatry (PDF)")
 st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF")
 
-# URL ของ Google Sheet (รูปแบบส่งออกเป็น CSV)
+# URL ของ Google Sheet
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
 
-@st.cache_data(ttl=60) # เก็บ Cache 1 นาที
+@st.cache_data(ttl=60)
 def load_data(url):
     try:
         df = pd.read_csv(url, on_bad_lines='skip')
@@ -32,7 +56,6 @@ df = load_data(SHEET_URL)
 if df is not None:
     st.success(f"โหลดข้อมูลสำเร็จ! จำนวนทั้งหมด {len(df)} รายการ")
     
-    # 📌 บังคับให้ใช้ "คอลัมน์ 1" สำหรับกรองวันที่
     target_col = "คอลัมน์ 1"
     
     if target_col in df.columns:
@@ -41,7 +64,6 @@ if df is not None:
         
         selected_date = st.selectbox("📅 เลือกวันที่ (จาก คอลัมน์ 1):", options=unique_dates)
         
-        # 📝 ช่องสำหรับพิมพ์ปัญหา/อุปสรรค และข้อเสนอแนะ
         problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
         suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
         
@@ -68,10 +90,8 @@ if df is not None:
                         match2 = re.search(r'id=([a-zA-Z0-9_-]+)', face_url)
                         
                         gdrive_id = None
-                        if match1:
-                            gdrive_id = match1.group(1)
-                        elif match2:
-                            gdrive_id = match2.group(1)
+                        if match1: gdrive_id = match1.group(1)
+                        elif match2: gdrive_id = match2.group(1)
                             
                         if gdrive_id:
                             direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
@@ -105,38 +125,41 @@ if df is not None:
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                     # ==========================================
-                    # 📊 1. กราฟวงกลมสำหรับ Dx
+                    # 📊 1. กราฟวงกลม Dx
                     # ==========================================
                     dx_counts = filtered_df['Dx'].value_counts()
                     chart_img_tag = ""
                     
                     valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                     if valid_dx:
-                        fig1, ax1 = plt.subplots(figsize=(2.5, 2.5))
+                        fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
                         total_dx = sum(valid_dx.values())
                         
-                        # สร้าง label แบบ "F15: 4 (50.0%)"
-                        labels1 = [f"{k}: {v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
-                        
-                        ax1.pie(
+                        labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
+                        wedges1, texts1 = ax1.pie(
                             valid_dx.values(), 
                             labels=labels1, 
+                            labeldistance=0.5, 
                             startangle=90,
-                            textprops={'fontsize': 10, 'color': '#1e293b'},
-                            colors=plt.cm.tab20.colors
+                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'bold', 'ha': 'center'},
+                            colors=plt.cm.tab20.colors,
+                            radius=1 
                         )
+                        for t in texts1:
+                            t.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
+                            
                         ax1.axis('equal') 
                         img_buf1 = io.BytesIO()
                         plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
                         img_buf1.seek(0)
                         chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
                         plt.close(fig1)
-                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:200px; display:block; margin:auto;"/>'
                     else:
                         chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล Dx</p>"
 
                     # ==========================================
-                    # 📊 2. กราฟวงกลมสำหรับ ระดับสี (แดง, ส้ม, เหลือง, เขียว, เทา)
+                    # 📊 2. กราฟวงกลม สรุปเคสสี
                     # ==========================================
                     color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                     level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
@@ -152,23 +175,23 @@ if df is not None:
                     level_chart_img_tag = ""
                     
                     if active_levels:
-                        fig2, ax2 = plt.subplots(figsize=(2.5, 2.5))
+                        fig2, ax2 = plt.subplots(figsize=(2.8, 2.8))
                         colors2 = [color_map[k] for k in active_levels.keys()]
                         total_levels = sum(active_levels.values())
                         
-                        # วาดวงกลมและแสดงข้อมูล จำนวน (เปอร์เซ็นต์) ไว้ด้านในสี
                         wedges2, texts2, autotexts2 = ax2.pie(
                             active_levels.values(),
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
-                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'bold'},
-                            colors=colors2
+                            labeldistance=0.5,
+                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'bold', 'ha': 'center'},
+                            colors=colors2,
+                            radius=1 
                         )
-                        
-                        # เปลี่ยนสีฟอนต์สีเหลืองให้เป็นสีดำจะได้อ่านง่าย
                         for i, k in enumerate(active_levels.keys()):
-                            if k == 'เหลือง':
-                                autotexts2[i].set_color('#1e293b') 
+                            if k == 'เหลือง': autotexts2[i].set_color('#1e293b') 
+                        for t in autotexts2:
+                            t.set_path_effects([path_effects.withStroke(linewidth=2, foreground='black')])
                                 
                         ax2.axis('equal')
                         img_buf2 = io.BytesIO()
@@ -176,13 +199,17 @@ if df is not None:
                         img_buf2.seek(0)
                         chart_base64_2 = base64.b64encode(img_buf2.read()).decode('utf-8')
                         plt.close(fig2)
-                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
+                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:200px; display:block; margin:auto;"/>'
                     else:
                         level_chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล</p>"
 
+                    # ==========================================
+                    # 🖼️ ดึงไฟล์ภาพโลโก้จากลิงก์ Google Drive ที่ให้มา
+                    # ==========================================
+                    logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
+
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
 
-                    # ส่วนของปัญหา/อุปสรรค และข้อเสนอแนะ
                     bottom_sections = ""
                     if problem_text.strip():
                         bottom_sections += f"""
@@ -208,21 +235,44 @@ if df is not None:
                     <style>
                         @page {{ size: A4 landscape; margin: 15mm; }}
                         body {{ 
-                            font-family: 'Sarabun', sans-serif; 
-                            font-size: 11pt; 
+                            font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; 
+                            font-size: 12pt; 
                             color: #334155; 
                             line-height: 1.5;
                         }}
+                        
+                        /* โลโก้ มุมบนขวา */
+                        .header-logo {{
+                            position: absolute;
+                            top: -10px;
+                            right: 0;
+                            text-align: center;
+                            width: 180px;
+                        }}
+                        .header-logo img {{
+                            width: 65px; /* ขนาดของโลโก้ */
+                            height: auto;
+                        }}
+                        .header-logo p {{
+                            font-size: 11pt;
+                            font-weight: bold;
+                            color: #1e293b;
+                            margin-top: 5px;
+                            line-height: 1.1;
+                        }}
+
                         h1 {{ 
                             text-align: center; 
                             color: #0f172a; 
                             border-bottom: 2px solid #cbd5e1; 
                             padding-bottom: 10px; 
+                            margin-top: 20px;
                             margin-bottom: 25px;
-                            font-size: 20pt;
+                            font-size: 22pt;
+                            padding-right: 180px; /* เว้นที่ให้โลโก้ */
+                            padding-left: 180px;
                         }}
                         
-                        /* Layout สำหรับกล่องสรุป */
                         .summary-container {{
                             width: 100%;
                             border-collapse: separate;
@@ -239,13 +289,12 @@ if df is not None:
                         .summary-box h3 {{
                             margin-top: 0; 
                             color: #0369a1; 
-                            font-size: 13pt;
+                            font-size: 14pt;
                             border-bottom: 1px solid #cbd5e1;
                             padding-bottom: 8px;
                             margin-bottom: 12px;
                         }}
 
-                        /* ดีไซน์ตาราง */
                         .data-table {{ 
                             width: 100%; 
                             border-collapse: collapse; 
@@ -260,7 +309,7 @@ if df is not None:
                             color: #ffffff; 
                             text-align: center;
                             font-weight: 600;
-                            font-size: 11pt;
+                            font-size: 12pt;
                         }}
                         .data-table td {{
                             border-bottom: 1px solid #e2e8f0;
@@ -269,7 +318,6 @@ if df is not None:
                             background-color: #f8fafc; 
                         }}
 
-                        /* ส่วนลงนาม */
                         .signature-section {{ 
                             margin-top: 40px; 
                             text-align: left; 
@@ -278,11 +326,15 @@ if df is not None:
                     </style>
                     </head>
                     <body>
+                        <div class="header-logo">
+                            <img src="{logo_src}" alt="Logo">
+                            <p>สถานพยาบาลเรือนจำ<br>จังหวัดบุรีรัมย์</p>
+                        </div>
+
                         <h1>{title_text}</h1>
                         
                         <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
                             <tr>
-                                <!-- ส่วนสรุปจำนวนผู้ป่วย -->
                                 <td class="summary-box" style="width: 30%; vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
                                     <ul style="padding-left: 20px;">
@@ -290,14 +342,10 @@ if df is not None:
                                         <li><strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})</li>
                                     </ul>
                                 </td>
-                                
-                                <!-- ส่วนแสดงกราฟวงกลม Dx -->
                                 <td class="summary-box" style="width: 35%; text-align: center;">
                                     <h3 style="text-align: left;">สรุปการวินิจฉัยโรค (Dx)</h3>
                                     {chart_img_tag}
                                 </td>
-                                
-                                <!-- ส่วนแสดงกราฟวงกลม สรุปเคสสี -->
                                 <td class="summary-box" style="width: 35%; text-align: center;">
                                     <h3 style="text-align: left;">สรุปเคสสีตามระดับ</h3>
                                     {level_chart_img_tag}
@@ -327,7 +375,7 @@ if df is not None:
                             <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <p style="margin: 0; font-weight: bold; font-size: 12pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
+                                <p style="margin: 0; font-weight: bold; font-size: 13pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
                                 <p style="margin: 5px 0 0 0; color: #475569;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
