@@ -30,20 +30,18 @@ if df is not None:
     # 📌 บังคับให้ใช้ "คอลัมน์ 1" สำหรับกรองวันที่
     target_col = "คอลัมน์ 1"
     
-    # ตรวจสอบว่ามีคอลัมน์ 1 อยู่ในข้อมูลจริงๆ หรือไม่
     if target_col in df.columns:
-        
-        # จัดการข้อมูลวันที่ให้สะอาดและดึงวันที่ที่ไม่ซ้ำกันมาแสดงใน Dropdown
         df[target_col] = df[target_col].astype(str).str.strip()
         unique_dates = ["ทั้งหมด"] + sorted(list(set([d for d in df[target_col].unique() if d and str(d).lower() != 'nan'])))
         
-        # สร้าง Dropdown ให้เลือกวันที่
         selected_date = st.selectbox("📅 เลือกวันที่ (จาก คอลัมน์ 1):", options=unique_dates)
+        
+        # 📝 ช่องสำหรับพิมพ์ปัญหา/อุปสรรค์
+        problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
         
         if st.button("🚀 สร้าง PDF", type="primary"):
             with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
                 
-                # กรองข้อมูล
                 filtered_df = df.copy()
                 if selected_date != "ทั้งหมด":
                     filtered_df = filtered_df[filtered_df[target_col] == selected_date]
@@ -52,7 +50,6 @@ if df is not None:
                     st.warning("ไม่พบข้อมูลในวันที่เลือก")
                 else:
                     html_rows = ""
-                    # ใช้ enumerate เพื่อจัดลำดับที่ 1, 2, 3... ใหม่ตามตารางที่กรองแล้ว
                     for row_num, (idx, row) in enumerate(filtered_df.iterrows(), start=1):
                         name = str(row.get('ชื่อ-สกุล', '')).replace('nan', '')
                         status = str(row.get('สถานะ', '')).replace('nan', '')
@@ -61,8 +58,6 @@ if df is not None:
                         
                         face_url = str(row.get('หน้า', '')).strip()
                         
-                        # 🖼️ แปลงลิงก์ Google Drive เป็นลิงก์สำหรับแสดงรูปภาพโดยตรง
-                        # ค้นหา ID ของไฟล์จากลิงก์
                         match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
                         match2 = re.search(r'id=([a-zA-Z0-9_-]+)', face_url)
                         
@@ -73,11 +68,10 @@ if df is not None:
                             gdrive_id = match2.group(1)
                             
                         if gdrive_id:
-                            # ใช้ URL พิเศษของ Google Drive สำหรับดาวน์โหลด/แสดงรูปภาพ
                             direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
                             img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;"/>'
                         else:
-                            img_tag = "-" # ถ้าไม่มีลิงก์หรือหา ID ไม่เจอ ให้ใส่เครื่องหมายขีด
+                            img_tag = "-"
                         
                         appt = str(row.get('นัด', '')).replace('nan', '')
                         doc = str(row.get('แพทย์', '')).replace('nan', '')
@@ -102,8 +96,17 @@ if df is not None:
                     dx_counts = filtered_df['Dx'].value_counts()
                     dx_html = "".join([f"<li><strong>{k}</strong>: {v} ราย</li>" for k, v in dx_counts.items() if str(k).lower() != 'nan'])
 
-                    # 📝 ตั้งชื่อหัวข้อรายงาน
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
+
+                    # HTML ส่วนของปัญหา/อุปสรรค (แสดงเฉพาะเมื่อมีการพิมพ์ข้อความ)
+                    problem_section = ""
+                    if problem_text.strip():
+                        problem_section = f"""
+                        <div class="summary-box" style="margin-top: 15px;">
+                            <h3 style="color: #c0392b;">ปัญหา / อุปสรรค</h3>
+                            <p style="margin: 0; white-space: pre-line;">{problem_text}</p>
+                        </div>
+                        """
 
                     html_content = f"""
                     <!DOCTYPE html>
@@ -117,8 +120,9 @@ if df is not None:
                         table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
                         th, td {{ border: 1px solid #bdc3c7; padding: 6px; vertical-align: middle; }}
                         th {{ background-color: #34495e; color: white; text-align: center; }}
-                        .summary-box {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; }}
+                        .summary-box {{ border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; }}
                         .summary-box h3 {{ margin-top: 0; color: #2980b9; }}
+                        .signature-section {{ margin-top: 30px; text-align: center; page-break-inside: avoid; }}
                     </style>
                     </head>
                     <body>
@@ -140,6 +144,9 @@ if df is not None:
                                 </tr>
                             </table>
                         </div>
+                        
+                        {problem_section}
+
                         <table>
                             <thead>
                                 <tr>
@@ -151,6 +158,14 @@ if df is not None:
                             </thead>
                             <tbody>{html_rows}</tbody>
                         </table>
+
+                        <!-- ส่วนลงนามท้ายกระดาษ (จัดกึ่งกลาง) -->
+                        <div class="signature-section">
+                            <p style="margin-bottom: 15px;">เรียน ผู้บัญชาการเรือนจำฯ<br>- เพื่อโปรดทราบ</p>
+                            <br><br><br>
+                            <p style="margin: 0; font-weight: bold;">นางสาวเดือนนภา เบี้ยชาติไทย</p>
+                            <p style="margin: 5px 0 0 0;">นักจิตวิทยาปฏิบัติการ</p>
+                        </div>
                     </body>
                     </html>
                     """
