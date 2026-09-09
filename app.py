@@ -7,7 +7,6 @@ import re
 import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import matplotlib.patheffects as path_effects
 import urllib.request
 import matplotlib.font_manager as fm
 
@@ -19,7 +18,7 @@ def setup_thai_font():
     font_path = "Sarabun-Regular.ttf"
     if not os.path.exists(font_path):
         try:
-            # ใช้ฟอนต์ Sarabun แบบธรรมดา (ไม่หนา) สำหรับกราฟวงกลม
+            # ใช้ฟอนต์ Sarabun แบบธรรมดา (ไม่หนา)
             urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Regular.ttf", font_path)
         except Exception:
             pass
@@ -142,12 +141,11 @@ if df is not None:
                             labels=labels1, 
                             labeldistance=0.5, 
                             startangle=90,
-                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'normal', 'ha': 'center'},
+                            # ตั้งค่า font weight เป็น normal และใช้สีเข้ม
+                            textprops={'fontsize': 10, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=plt.cm.tab20.colors,
                             radius=1 
                         )
-                        for t in texts1:
-                            t.set_path_effects([path_effects.withStroke(linewidth=1.5, foreground='black')])
                             
                         ax1.axis('equal') 
                         img_buf1 = io.BytesIO()
@@ -185,14 +183,11 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            textprops={'fontsize': 10, 'color': 'white', 'weight': 'normal', 'ha': 'center'},
+                            # ตั้งค่า font weight เป็น normal และใช้สีเข้ม
+                            textprops={'fontsize': 10, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=colors2,
                             radius=1 
                         )
-                        for i, k in enumerate(active_levels.keys()):
-                            if k == 'เหลือง': autotexts2[i].set_color('#1e293b') 
-                        for t in autotexts2:
-                            t.set_path_effects([path_effects.withStroke(linewidth=1.5, foreground='black')])
                                 
                         ax2.axis('equal')
                         img_buf2 = io.BytesIO()
@@ -205,7 +200,7 @@ if df is not None:
                         level_chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล</p>"
 
                     # ==========================================
-                    # 🖼️ ดึงไฟล์ภาพโลโก้จากลิงก์ Google Drive ที่ให้มา
+                    # 🖼️ ดึงไฟล์ภาพโลโก้จากลิงก์ Google Drive
                     # ==========================================
                     logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
 
@@ -245,10 +240,12 @@ if df is not None:
                             line-height: 1.5;
                         }}
                         
-                        /* โลโก้ ฝั่งซ้าย และห่างจากขอบกระดาษซ้าย 3 เซนติเมตร (margin-left กระดาษ 15mm + 15mm = 30mm) */
+                        /* โลโก้ ฝั่งซ้าย และห่างจากขอบกระดาษซ้าย 3 ซม. ห่างจากขอบบน 1 ซม. */
+                        /* margin-top: -5mm (หน้ากระดาษ 15mm - 5mm = 10mm คือ 1 ซม.) */
+                        /* margin-left: 15mm (หน้ากระดาษ 15mm + 15mm = 30mm คือ 3 ซม.) */
                         .header-logo {{
                             position: absolute;
-                            top: -10px;
+                            top: -5mm; 
                             left: 15mm; 
                             text-align: center;
                             width: 180px;
@@ -341,7 +338,6 @@ if df is not None:
                             <tr>
                                 <td class="summary-box" style="width: 30%; vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
-                                    <!-- เปลี่ยนเป็นข้อความ 2 บรรทัด ไม่มี bullet -->
                                     <p style="margin: 10px 0 0 0; line-height: 1.8;">
                                         <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})<br>
                                         <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})
