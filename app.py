@@ -59,26 +59,31 @@ if df is not None:
     if target_col in df.columns:
         df[target_col] = df[target_col].astype(str).str.strip()
         
-        # ดึงรายชื่อวันที่และแพทย์
+        # ดึงรายชื่อวันที่, แพทย์, และสถานะ
         unique_dates = ["ทั้งหมด"] + sorted(list(set([d for d in df[target_col].unique() if d and str(d).lower() != 'nan'])))
         unique_doctors = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['แพทย์'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
+        unique_statuses = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['สถานะ'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         
-        # ส่วน UI ตัวกรอง (แสดงแบบ 2 คอลัมน์คู่กัน)
-        col_filter1, col_filter2 = st.columns(2)
+        # ส่วน UI ตัวกรอง (แสดงแบบ 3 คอลัมน์คู่กัน)
+        col_filter1, col_filter2, col_filter3 = st.columns(3)
         with col_filter1:
             selected_date = st.selectbox("📅 เลือกวันที่:", options=unique_dates)
         with col_filter2:
             selected_doctor = st.selectbox("🩺 เลือกแพทย์ผู้ตรวจ:", options=unique_doctors)
+        with col_filter3:
+            selected_status = st.selectbox("📌 เลือกสถานะผู้ป่วย:", options=unique_statuses)
         
         problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
         suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
         
-        # ประมวลผลการกรองข้อมูล
+        # ประมวลผลการกรองข้อมูลตามเงื่อนไขที่เลือกทั้งหมด
         filtered_df = df.copy()
         if selected_date != "ทั้งหมด":
             filtered_df = filtered_df[filtered_df[target_col] == selected_date]
         if selected_doctor != "ทั้งหมด":
             filtered_df = filtered_df[filtered_df['แพทย์'].astype(str).str.strip() == selected_doctor]
+        if selected_status != "ทั้งหมด":
+            filtered_df = filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == selected_status]
             
         # ==========================================
         # 📊 1. ส่วน Dashboard บนหน้าเว็บ
@@ -93,7 +98,7 @@ if df is not None:
             red_cases = sum(filtered_df['หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
             
             dash_col1, dash_col2, dash_col3 = st.columns(3)
-            dash_col1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_patients} ราย")
+            dash_col1.metric("👥 ผู้ป่วยทั้งหมด (ตามตัวกรอง)", f"{total_patients} ราย")
             dash_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย")
             dash_col3.metric("🚨 เคสเฝ้าระวัง (สีแดง)", f"{red_cases} ราย")
             
@@ -261,8 +266,12 @@ if df is not None:
                     # ==========================================
                     logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
                     title_text = f"รายงาน Telepsychiatry วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงาน Telepsychiatry (ทั้งหมด)"
+                    
+                    # อัปเดตหัวข้อตามตัวกรองแพทย์และสถานะ (ให้มีรายละเอียดครบ)
                     if selected_doctor != "ทั้งหมด":
                         title_text += f" (แพทย์: {selected_doctor})"
+                    if selected_status != "ทั้งหมด":
+                        title_text += f" (เฉพาะผู้ป่วย{selected_status})"
 
                     bottom_sections = ""
                     if problem_text.strip():
@@ -290,7 +299,6 @@ if df is not None:
                         @page {{ 
                             size: A4 portrait; 
                             margin: 5mm 10mm 15mm 10mm; 
-                            /* เพิ่มฟีเจอร์เลขหน้า มุมขวาล่าง */
                             @bottom-right {{
                                 content: "หน้า " counter(page) " / " counter(pages);
                                 font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif;
@@ -319,7 +327,6 @@ if df is not None:
                         .data-table th {{ background-color: #1e293b; color: #ffffff; text-align: center; font-weight: 600; }}
                         .data-table td {{ border-bottom: 1px solid #e2e8f0; }}
                         
-                        /* แถวสลับสี (ยกเว้นแถวที่โดนตั้งสีไฮไลต์ไว้แล้ว) */
                         .data-table tr:nth-child(even) {{ background-color: #f8fafc; }}
 
                         .signature-section {{ margin-top: 30px; text-align: left; page-break-inside: avoid; }}
@@ -386,7 +393,7 @@ if df is not None:
                     st.download_button(
                         label="📥 คลิกที่นี่เพื่อดาวน์โหลดไฟล์ PDF",
                         data=pdf_bytes,
-                        file_name=f"Telepsychiatry_Report_{selected_date.replace('/', '-') if selected_date != 'ทั้งหมด' else 'All'}.pdf",
+                        file_name=f"Telepsychiatry_Report.pdf",
                         mime="application/pdf"
                     )
         else:
