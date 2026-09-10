@@ -128,10 +128,9 @@ if df is not None:
                 # ฟังก์ชันสำหรับใส่สีพื้นหลังแดงบนเว็บ
                 def highlight_red_preview(subset_df):
                     styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
-                    # ตรวจสอบเคสแดงจากคอลัมน์ 'หน้า'
                     red_mask = filtered_df.loc[subset_df.index, 'หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
                     for col in styles.columns:
-                        styles.loc[red_mask, col] = 'background-color: #fee2e2;' # สีชมพู/แดงอ่อน
+                        styles.loc[red_mask, col] = 'background-color: #fee2e2;'
                     return styles
 
                 # นำสไตล์ไปประยุกต์ใช้กับตารางแสดงผลบน Streamlit
@@ -257,18 +256,11 @@ if df is not None:
                         # ==========================================
                         logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
                         
-                        # สร้างหัวกระดาษแบบรองรับการเลือกหลายรายการ
-                        title_text = "รายงาน Telepsychiatry"
+                        # สร้างหัวกระดาษ (ลบวงเล็บตัวกรองออกตามที่ผู้ใช้ต้องการ)
                         if "ทั้งหมด" in selected_dates:
-                            title_text += " (ทั้งหมด)"
+                            title_text = "รายงาน Telepsychiatry"
                         else:
-                            title_text += f" วันที่ {', '.join(selected_dates)}"
-                            
-                        if "ทั้งหมด" not in selected_doctors:
-                            title_text += f" (แพทย์: {', '.join(selected_doctors)})"
-                            
-                        if "ทั้งหมด" not in selected_statuses:
-                            title_text += f" (สถานะ: {', '.join(selected_statuses)})"
+                            title_text = f"รายงาน Telepsychiatry วันที่ {', '.join(selected_dates)}"
 
                         bottom_sections = ""
                         if problem_text.strip():
