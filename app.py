@@ -5,6 +5,7 @@ from weasyprint import HTML
 import io
 import re
 import os
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import urllib.request
@@ -125,27 +126,40 @@ if df is not None:
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                     # ==========================================
-                    # 📊 1. กราฟวงกลม Dx (ปรับลดขนาดสำหรับแนวตั้ง)
+                    # 📊 1. กราฟวงกลม Dx (ลากเส้นชี้ออกข้างนอก)
                     # ==========================================
                     dx_counts = filtered_df['Dx'].value_counts()
                     chart_img_tag = ""
                     
                     valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                     if valid_dx:
-                        # ปรับ figsize ให้เล็กลงสำหรับ A4 แนวตั้ง
-                        fig1, ax1 = plt.subplots(figsize=(2.0, 2.0))
+                        # สร้างขนาดภาพให้ใหญ่ขึ้นเพื่อรองรับเส้นและข้อความด้านนอก
+                        fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
                         total_dx = sum(valid_dx.values())
                         
                         labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
                         wedges1, texts1 = ax1.pie(
                             valid_dx.values(), 
-                            labels=labels1, 
-                            labeldistance=0.5, 
                             startangle=90,
-                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=plt.cm.tab20.colors,
-                            radius=1 
+                            radius=0.55 # ทำให้วงกลมเล็กลงเพื่อให้มีพื้นที่ตีเส้น
                         )
+                        
+                        # โค้ดสำหรับตีเส้นโยง (Callout lines)
+                        kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
+                        for i, p in enumerate(wedges1):
+                            ang = (p.theta2 - p.theta1)/2. + p.theta1
+                            y = np.sin(np.deg2rad(ang))
+                            x = np.cos(np.deg2rad(ang))
+                            x_sign = -1 if x < 0 else 1
+                            horizontalalignment = "right" if x_sign == -1 else "left"
+                            connectionstyle = f"angle,angleA=0,angleB={ang}"
+                            kw["arrowprops"].update({"connectionstyle": connectionstyle})
+                            
+                            # ตำแหน่งที่ข้อความจะไปอยู่
+                            ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(1.0*x_sign, 1.1*y),
+                                         horizontalalignment=horizontalalignment,
+                                         fontsize=8.5, color='#111827', **kw)
                             
                         ax1.axis('equal') 
                         img_buf1 = io.BytesIO()
@@ -153,13 +167,13 @@ if df is not None:
                         img_buf1.seek(0)
                         chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
                         plt.close(fig1)
-                        # จำกัด max-width ให้ไม่เกิน 110px
-                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:110px; display:block; margin:auto;"/>'
+                        # ตั้งค่าให้กว้างขึ้นเพื่อแสดงเส้นได้เต็มที่
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
                     else:
                         chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 10pt;'>ไม่มีข้อมูล Dx</p>"
 
                     # ==========================================
-                    # 📊 2. กราฟวงกลม สรุปเคสสี (ปรับลดขนาดสำหรับแนวตั้ง)
+                    # 📊 2. กราฟวงกลม สรุปเคสตามระดับสี
                     # ==========================================
                     color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                     level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
@@ -175,8 +189,8 @@ if df is not None:
                     level_chart_img_tag = ""
                     
                     if active_levels:
-                        # ปรับ figsize ให้เล็กลงสำหรับ A4 แนวตั้ง
-                        fig2, ax2 = plt.subplots(figsize=(2.0, 2.0))
+                        # ปรับให้กราฟวงกลมที่ 2 มีขนาดภาพและวงกลมไล่เลี่ยกับอันแรกเมื่อมองด้วยตา
+                        fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                         colors2 = [color_map[k] for k in active_levels.keys()]
                         total_levels = sum(active_levels.values())
                         
@@ -185,9 +199,9 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
+                            textprops={'fontsize': 8.5, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=colors2,
-                            radius=1 
+                            radius=0.85 # ทำให้วงเล็กลงนิดหน่อยให้เข้ากับวงที่ 1
                         )
                                 
                         ax2.axis('equal')
@@ -196,7 +210,7 @@ if df is not None:
                         img_buf2.seek(0)
                         chart_base64_2 = base64.b64encode(img_buf2.read()).decode('utf-8')
                         plt.close(fig2)
-                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:110px; display:block; margin:auto;"/>'
+                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:130px; display:block; margin:auto;"/>'
                     else:
                         level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 10pt;'>ไม่มีข้อมูล</p>"
 
@@ -231,7 +245,7 @@ if df is not None:
                     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                     <style>
                         @page {{ 
-                            size: A4 portrait; /* เปลี่ยนเป็นแนวตั้ง */
+                            size: A4 portrait; /* แนวตั้ง */
                             /* ขอบบน 10mm (1ซม.), ขวา 10mm, ล่าง 15mm, ซ้าย 10mm */
                             margin: 10mm 10mm 15mm 10mm; 
                         }}
@@ -255,11 +269,11 @@ if df is not None:
                             vertical-align: bottom;
                         }}
                         .header-logo {{
-                            width: 130px; /* ลดขนาดกรอบโลโก้ลงให้พอดีกับแนวตั้ง */
+                            width: 130px; 
                             text-align: center;
                         }}
                         .header-logo img {{
-                            width: 55px; /* ลดขนาดโลโก้ลงเล็กน้อย */
+                            width: 55px; 
                             height: auto;
                         }}
                         .header-logo p {{
@@ -275,14 +289,14 @@ if df is not None:
                             color: #0f172a; 
                             margin: 0;
                             padding: 0;
-                            font-size: 18pt; /* ลดขนาดหัวข้อลงนิดหน่อย */
+                            font-size: 18pt; 
                         }}
                         
-                        /* บังคับให้ตารางแบ่งสัดส่วนเท่ากันพอดี 100% / 3 = 33.33% */
+                        /* กล่องสรุป 3 ส่วน */
                         .summary-container {{
                             width: 100%;
                             border-collapse: separate;
-                            border-spacing: 8px 0; /* ลดระยะห่างระหว่างกล่อง */
+                            border-spacing: 8px 0; 
                             margin-bottom: 20px;
                             table-layout: fixed;
                         }}
@@ -290,7 +304,7 @@ if df is not None:
                             background-color: #f8fafc;
                             border: 1px solid #e2e8f0;
                             border-radius: 8px;
-                            padding: 10px; /* ลด padding เพื่อเพิ่มพื้นที่ข้างใน */
+                            padding: 10px; 
                             vertical-align: middle;
                             width: 33.33%; 
                         }}
@@ -303,7 +317,7 @@ if df is not None:
                             margin-bottom: 8px;
                         }}
 
-                        /* ตารางข้อมูล - ปรับขนาดฟอนต์ให้พอดีกับแนวตั้ง */
+                        /* ตารางข้อมูล */
                         .data-table {{ 
                             width: 100%; 
                             border-collapse: collapse; 
@@ -311,9 +325,9 @@ if df is not None:
                             table-layout: auto;
                         }}
                         .data-table th, .data-table td {{ 
-                            padding: 6px 4px; /* ลด padding ซ้ายขวาไม่ให้ล้น */
+                            padding: 6px 4px; 
                             vertical-align: middle; 
-                            font-size: 10.5pt; /* ลดขนาดฟอนต์ของตารางให้อ่านได้ในแนวตั้ง */
+                            font-size: 10.5pt; 
                         }}
                         .data-table th {{ 
                             background-color: #1e293b; 
@@ -337,7 +351,7 @@ if df is not None:
                     </head>
                     <body>
                         
-                        <!-- ส่วนหัวใหม่ (ตารางป้องกันการทับเส้น) -->
+                        <!-- ส่วนหัว -->
                         <table class="header-table">
                             <tr>
                                 <td class="header-logo">
@@ -365,7 +379,7 @@ if df is not None:
                                     {chart_img_tag}
                                 </td>
                                 <td class="summary-box" style="text-align: center;">
-                                    <h3 style="text-align: left;">สรุปเคสสีตามระดับ</h3>
+                                    <h3 style="text-align: left;">สรุปเคสตามระดับสี</h3>
                                     {level_chart_img_tag}
                                 </td>
                             </tr>
@@ -393,8 +407,9 @@ if df is not None:
                             <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <p style="margin: 0; font-size: 12pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
-                                <p style="margin: 5px 0 0 0; color: #475569; font-size: 11pt;">นักจิตวิทยาปฏิบัติการ</p>
+                                <!-- ปรับขนาดฟอนต์เป็น 15pt -->
+                                <p style="margin: 0; font-size: 15pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
+                                <p style="margin: 5px 0 0 0; color: #475569; font-size: 15pt;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
                     </body>
