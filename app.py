@@ -153,9 +153,9 @@ if df is not None:
                             connectionstyle = f"angle,angleA=0,angleB={ang}"
                             kw["arrowprops"].update({"connectionstyle": connectionstyle})
                             
-                            ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.8*x_sign, 0.9*y),
+                            ax1.annotate(labels1[i], xy=(x*0.75, y*0.75), xytext=(1.1*x_sign, 1.1*y),
                                          horizontalalignment=horizontalalignment,
-                                         fontsize=8, color='#111827', **kw) # ขนาดฟอนต์ 8
+                                         fontsize=8, color='#111827', **kw) 
                             
                         ax1.axis('equal') 
                         img_buf1 = io.BytesIO()
@@ -193,7 +193,7 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'}, # ขนาดฟอนต์ 8
+                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'}, 
                             colors=colors2,
                             radius=0.85 
                         )
@@ -240,11 +240,12 @@ if df is not None:
                     <style>
                         @page {{ 
                             size: A4 portrait; 
-                            margin: 10mm 10mm 15mm 10mm; 
+                            /* ขอบบน 5mm (0.5ซม.), ขวา 10mm, ล่าง 15mm, ซ้าย 10mm */
+                            margin: 5mm 10mm 15mm 10mm; 
                         }}
                         body {{ 
                             font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; 
-                            font-size: 11pt; /* ขนาดเริ่มต้น 11 pt */
+                            font-size: 11pt; 
                             color: #334155; 
                             line-height: 1.5;
                         }}
@@ -269,7 +270,7 @@ if df is not None:
                             height: auto;
                         }}
                         .header-logo p {{
-                            font-size: 9pt; /* ชื่อสถานพยาบาล 9 pt */
+                            font-size: 9pt; 
                             font-weight: bold;
                             color: #1e293b;
                             margin-top: 5px;
@@ -281,7 +282,7 @@ if df is not None:
                             color: #0f172a; 
                             margin: 0;
                             padding: 0;
-                            font-size: 12pt; /* หัวข้อหลัก 12 pt */
+                            font-size: 12pt; 
                         }}
                         
                         .summary-container {{
@@ -302,7 +303,7 @@ if df is not None:
                         .summary-box h3 {{
                             margin-top: 0; 
                             color: #0369a1; 
-                            font-size: 10pt; /* หัวข้อย่อย 10 pt */
+                            font-size: 10pt; 
                             border-bottom: 1px solid #cbd5e1;
                             padding-bottom: 6px;
                             margin-bottom: 8px;
@@ -317,7 +318,7 @@ if df is not None:
                         .data-table th, .data-table td {{ 
                             padding: 6px 4px; 
                             vertical-align: middle; 
-                            font-size: 9pt; /* เนื้อหาตารางรายชื่อผู้ป่วย 9 pt */
+                            font-size: 9pt; 
                         }}
                         .data-table th {{ 
                             background-color: #1e293b; 
@@ -358,7 +359,7 @@ if df is not None:
                             <tr>
                                 <td class="summary-box" style="vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
-                                    <p style="margin: 5px 0 0 0; line-height: 1.6; font-size: 9pt;"> <!-- กล่องสรุปสถานะ 9 pt -->
+                                    <p style="margin: 5px 0 0 0; line-height: 1.6; font-size: 9pt;">
                                         <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
                                         <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
                                     </p>
@@ -396,7 +397,7 @@ if df is not None:
                             <p style="margin-bottom: 20px; line-height: 1.6; font-size: 11pt;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <p style="margin: 0; font-size: 9pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p> <!-- ส่วนลงนาม 9 pt -->
+                                <p style="margin: 0; font-size: 9pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
                                 <p style="margin: 5px 0 0 0; color: #475569; font-size: 9pt;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
