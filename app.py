@@ -153,7 +153,7 @@ if df is not None:
                             connectionstyle = f"angle,angleA=0,angleB={ang}"
                             kw["arrowprops"].update({"connectionstyle": connectionstyle})
                             
-                            ax1.annotate(labels1[i], xy=(x*0.75, y*0.75), xytext=(1.1*x_sign, 1.1*y),
+                            ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.75*x_sign, 0.8*y),
                                          horizontalalignment=horizontalalignment,
                                          fontsize=8, color='#111827', **kw) 
                             
@@ -209,6 +209,43 @@ if df is not None:
                         level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
 
                     # ==========================================
+                    # 📊 3. กราฟวงกลม สรุปเพศ (เพิ่มใหม่)
+                    # ==========================================
+                    gender_counts = {'ชาย': old_m + new_m, 'หญิง': old_f + new_f}
+                    active_genders = {k: v for k, v in gender_counts.items() if v > 0}
+                    gender_chart_img_tag = ""
+                    
+                    if active_genders:
+                        fig3, ax3 = plt.subplots(figsize=(2.2, 2.2))
+                        # สีฟ้าสำหรับชาย สีชมพูสำหรับหญิง
+                        colors3 = ['#3b82f6' if k == 'ชาย' else '#ec4899' for k in active_genders.keys()]
+                        total_genders = sum(active_genders.values())
+                        
+                        wedges3, texts3, autotexts3 = ax3.pie(
+                            active_genders.values(),
+                            labels=active_genders.keys(), # วางคำว่า ชาย หญิง ด้านนอก
+                            autopct=lambda p: f"{int(round(p * total_genders / 100))}\n({p:.1f}%)",
+                            startangle=90,
+                            labeldistance=1.1,
+                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'}, 
+                            colors=colors3,
+                            radius=0.75 
+                        )
+                        # ปรับสีตัวเลขข้างในให้เป็นสีขาว
+                        for autotext in autotexts3:
+                            autotext.set_color('white')
+                                
+                        ax3.axis('equal')
+                        img_buf3 = io.BytesIO()
+                        plt.savefig(img_buf3, format='png', bbox_inches='tight', transparent=True, dpi=120)
+                        img_buf3.seek(0)
+                        chart_base64_3 = base64.b64encode(img_buf3.read()).decode('utf-8')
+                        plt.close(fig3)
+                        gender_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_3}" style="width:100%; max-width:110px; display:block; margin:auto; margin-top: 10px;"/>'
+                    else:
+                        gender_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
+
+                    # ==========================================
                     # 🖼️ ดึงไฟล์ภาพโลโก้
                     # ==========================================
                     logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
@@ -240,7 +277,6 @@ if df is not None:
                     <style>
                         @page {{ 
                             size: A4 portrait; 
-                            /* ขอบบน 5mm (0.5ซม.), ขวา 10mm, ล่าง 15mm, ซ้าย 10mm */
                             margin: 5mm 10mm 15mm 10mm; 
                         }}
                         body {{ 
@@ -297,7 +333,7 @@ if df is not None:
                             border: 1px solid #e2e8f0;
                             border-radius: 8px;
                             padding: 10px; 
-                            vertical-align: middle;
+                            vertical-align: top;
                             width: 33.33%; 
                         }}
                         .summary-box h3 {{
@@ -357,12 +393,13 @@ if df is not None:
                         
                         <table class="summary-container">
                             <tr>
-                                <td class="summary-box" style="vertical-align: top;">
+                                <td class="summary-box" style="vertical-align: top; text-align: left;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
-                                    <p style="margin: 5px 0 0 0; line-height: 1.6; font-size: 9pt;">
+                                    <p style="margin: 0 0 5px 0; line-height: 1.5; font-size: 9pt;">
                                         <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
                                         <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
                                     </p>
+                                    {gender_chart_img_tag}
                                 </td>
                                 <td class="summary-box" style="text-align: center;">
                                     <h3 style="text-align: left;">สรุปการวินิจฉัยโรค</h3>
