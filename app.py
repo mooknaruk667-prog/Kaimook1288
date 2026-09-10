@@ -19,7 +19,6 @@ def setup_thai_font():
     font_path = "Sarabun-Regular.ttf"
     if not os.path.exists(font_path):
         try:
-            # ใช้ฟอนต์ Sarabun แบบธรรมดา (ไม่หนา)
             urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Regular.ttf", font_path)
         except Exception:
             pass
@@ -38,7 +37,7 @@ plt.switch_backend('Agg')
 st.set_page_config(page_title="ระบบสร้างรายงาน PDF", page_icon="📄", layout="wide")
 
 st.title("📄 ระบบสร้างรายงาน Telepsychiatry (PDF)")
-st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF (แนวตั้ง A4)")
+st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF")
 
 # URL ของ Google Sheet
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
@@ -126,14 +125,13 @@ if df is not None:
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                     # ==========================================
-                    # 📊 1. กราฟวงกลม Dx (ลากเส้นชี้ออกข้างนอก)
+                    # 📊 1. กราฟวงกลม Dx
                     # ==========================================
                     dx_counts = filtered_df['Dx'].value_counts()
                     chart_img_tag = ""
                     
                     valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                     if valid_dx:
-                        # สร้างขนาดภาพให้ใหญ่ขึ้นเพื่อรองรับเส้นและข้อความด้านนอก
                         fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
                         total_dx = sum(valid_dx.values())
                         
@@ -142,10 +140,9 @@ if df is not None:
                             valid_dx.values(), 
                             startangle=90,
                             colors=plt.cm.tab20.colors,
-                            radius=0.55 # ทำให้วงกลมเล็กลงเพื่อให้มีพื้นที่ตีเส้น
+                            radius=0.55 
                         )
                         
-                        # โค้ดสำหรับตีเส้นโยง (Callout lines)
                         kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
                         for i, p in enumerate(wedges1):
                             ang = (p.theta2 - p.theta1)/2. + p.theta1
@@ -156,10 +153,9 @@ if df is not None:
                             connectionstyle = f"angle,angleA=0,angleB={ang}"
                             kw["arrowprops"].update({"connectionstyle": connectionstyle})
                             
-                            # ตำแหน่งที่ข้อความจะไปอยู่
-                            ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(1.0*x_sign, 1.1*y),
+                            ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.8*x_sign, 0.9*y),
                                          horizontalalignment=horizontalalignment,
-                                         fontsize=8.5, color='#111827', **kw)
+                                         fontsize=8, color='#111827', **kw) # ขนาดฟอนต์ 8
                             
                         ax1.axis('equal') 
                         img_buf1 = io.BytesIO()
@@ -167,10 +163,9 @@ if df is not None:
                         img_buf1.seek(0)
                         chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
                         plt.close(fig1)
-                        # ตั้งค่าให้กว้างขึ้นเพื่อแสดงเส้นได้เต็มที่
                         chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
                     else:
-                        chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 10pt;'>ไม่มีข้อมูล Dx</p>"
+                        chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
                     # ==========================================
                     # 📊 2. กราฟวงกลม สรุปเคสตามระดับสี
@@ -189,7 +184,6 @@ if df is not None:
                     level_chart_img_tag = ""
                     
                     if active_levels:
-                        # ปรับให้กราฟวงกลมที่ 2 มีขนาดภาพและวงกลมไล่เลี่ยกับอันแรกเมื่อมองด้วยตา
                         fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                         colors2 = [color_map[k] for k in active_levels.keys()]
                         total_levels = sum(active_levels.values())
@@ -199,9 +193,9 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            textprops={'fontsize': 8.5, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
+                            textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'}, # ขนาดฟอนต์ 8
                             colors=colors2,
-                            radius=0.85 # ทำให้วงเล็กลงนิดหน่อยให้เข้ากับวงที่ 1
+                            radius=0.85 
                         )
                                 
                         ax2.axis('equal')
@@ -212,10 +206,10 @@ if df is not None:
                         plt.close(fig2)
                         level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:130px; display:block; margin:auto;"/>'
                     else:
-                        level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 10pt;'>ไม่มีข้อมูล</p>"
+                        level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
 
                     # ==========================================
-                    # 🖼️ ดึงไฟล์ภาพโลโก้จากลิงก์ Google Drive
+                    # 🖼️ ดึงไฟล์ภาพโลโก้
                     # ==========================================
                     logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
 
@@ -225,15 +219,15 @@ if df is not None:
                     if problem_text.strip():
                         bottom_sections += f"""
                         <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; margin-top: 15px; border-radius: 4px;">
-                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 12pt;">ปัญหา / อุปสรรค</h3>
-                            <p style="margin: 0; line-height: 1.5; white-space: pre-line; font-size: 11pt;">{problem_text}</p>
+                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 10pt;">ปัญหา / อุปสรรค</h3>
+                            <p style="margin: 0; line-height: 1.5; white-space: pre-line; font-size: 9pt;">{problem_text}</p>
                         </div>
                         """
                     if suggestion_text.strip():
                         bottom_sections += f"""
                         <div style="background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 12px; margin-top: 15px; border-radius: 4px;">
-                            <h3 style="color: #15803d; margin-top: 0; font-size: 12pt;">ข้อเสนอแนะ</h3>
-                            <p style="margin: 0; line-height: 1.5; white-space: pre-line; font-size: 11pt;">{suggestion_text}</p>
+                            <h3 style="color: #15803d; margin-top: 0; font-size: 10pt;">ข้อเสนอแนะ</h3>
+                            <p style="margin: 0; line-height: 1.5; white-space: pre-line; font-size: 9pt;">{suggestion_text}</p>
                         </div>
                         """
 
@@ -245,18 +239,16 @@ if df is not None:
                     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                     <style>
                         @page {{ 
-                            size: A4 portrait; /* แนวตั้ง */
-                            /* ขอบบน 10mm (1ซม.), ขวา 10mm, ล่าง 15mm, ซ้าย 10mm */
+                            size: A4 portrait; 
                             margin: 10mm 10mm 15mm 10mm; 
                         }}
                         body {{ 
                             font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; 
-                            font-size: 11pt; 
+                            font-size: 11pt; /* ขนาดเริ่มต้น 11 pt */
                             color: #334155; 
                             line-height: 1.5;
                         }}
                         
-                        /* โครงสร้างส่วนหัว (Header) */
                         .header-table {{
                             width: 100%;
                             border-collapse: collapse;
@@ -277,7 +269,7 @@ if df is not None:
                             height: auto;
                         }}
                         .header-logo p {{
-                            font-size: 10pt;
+                            font-size: 9pt; /* ชื่อสถานพยาบาล 9 pt */
                             font-weight: bold;
                             color: #1e293b;
                             margin-top: 5px;
@@ -289,10 +281,9 @@ if df is not None:
                             color: #0f172a; 
                             margin: 0;
                             padding: 0;
-                            font-size: 18pt; 
+                            font-size: 12pt; /* หัวข้อหลัก 12 pt */
                         }}
                         
-                        /* กล่องสรุป 3 ส่วน */
                         .summary-container {{
                             width: 100%;
                             border-collapse: separate;
@@ -311,13 +302,12 @@ if df is not None:
                         .summary-box h3 {{
                             margin-top: 0; 
                             color: #0369a1; 
-                            font-size: 12pt;
+                            font-size: 10pt; /* หัวข้อย่อย 10 pt */
                             border-bottom: 1px solid #cbd5e1;
                             padding-bottom: 6px;
                             margin-bottom: 8px;
                         }}
 
-                        /* ตารางข้อมูล */
                         .data-table {{ 
                             width: 100%; 
                             border-collapse: collapse; 
@@ -327,7 +317,7 @@ if df is not None:
                         .data-table th, .data-table td {{ 
                             padding: 6px 4px; 
                             vertical-align: middle; 
-                            font-size: 10.5pt; 
+                            font-size: 9pt; /* เนื้อหาตารางรายชื่อผู้ป่วย 9 pt */
                         }}
                         .data-table th {{ 
                             background-color: #1e293b; 
@@ -351,7 +341,6 @@ if df is not None:
                     </head>
                     <body>
                         
-                        <!-- ส่วนหัว -->
                         <table class="header-table">
                             <tr>
                                 <td class="header-logo">
@@ -361,7 +350,7 @@ if df is not None:
                                 <td style="vertical-align: middle;">
                                     <h1>{title_text}</h1>
                                 </td>
-                                <td style="width: 130px;"></td> <!-- บาลานซ์ฝั่งขวา -->
+                                <td style="width: 130px;"></td> 
                             </tr>
                         </table>
                         
@@ -369,7 +358,7 @@ if df is not None:
                             <tr>
                                 <td class="summary-box" style="vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
-                                    <p style="margin: 5px 0 0 0; line-height: 1.6; font-size: 10.5pt;">
+                                    <p style="margin: 5px 0 0 0; line-height: 1.6; font-size: 9pt;"> <!-- กล่องสรุปสถานะ 9 pt -->
                                         <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
                                         <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
                                     </p>
@@ -404,12 +393,11 @@ if df is not None:
                         {bottom_sections}
 
                         <div class="signature-section">
-                            <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
+                            <p style="margin-bottom: 20px; line-height: 1.6; font-size: 11pt;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <!-- ปรับขนาดฟอนต์เป็น 15pt -->
-                                <p style="margin: 0; font-size: 15pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
-                                <p style="margin: 5px 0 0 0; color: #475569; font-size: 15pt;">นักจิตวิทยาปฏิบัติการ</p>
+                                <p style="margin: 0; font-size: 9pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p> <!-- ส่วนลงนาม 9 pt -->
+                                <p style="margin: 5px 0 0 0; color: #475569; font-size: 9pt;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
                     </body>
