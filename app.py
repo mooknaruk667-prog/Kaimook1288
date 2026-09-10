@@ -37,7 +37,7 @@ plt.switch_backend('Agg')
 st.set_page_config(page_title="ระบบสร้างรายงาน PDF", page_icon="📄", layout="wide")
 
 st.title("📄 ระบบสร้างรายงาน Telepsychiatry (PDF)")
-st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF")
+st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF (แนวตั้ง A4)")
 
 # URL ของ Google Sheet
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
@@ -95,7 +95,7 @@ if df is not None:
                             
                         if gdrive_id:
                             direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
-                            img_tag = f'<img src="{direct_img_url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"/>'
+                            img_tag = f'<img src="{direct_img_url}" style="width:26px;height:26px;object-fit:cover;border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"/>'
                         else:
                             img_tag = "-"
                         
@@ -125,15 +125,15 @@ if df is not None:
                     new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                     # ==========================================
-                    # 📊 1. กราฟวงกลม Dx
+                    # 📊 1. กราฟวงกลม Dx (ปรับลดขนาดสำหรับแนวตั้ง)
                     # ==========================================
                     dx_counts = filtered_df['Dx'].value_counts()
                     chart_img_tag = ""
                     
                     valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                     if valid_dx:
-                        # ลดขนาด figure ลงจาก 2.8 เป็น 2.2
-                        fig1, ax1 = plt.subplots(figsize=(2.2, 2.2))
+                        # ปรับ figsize ให้เล็กลงสำหรับ A4 แนวตั้ง
+                        fig1, ax1 = plt.subplots(figsize=(2.0, 2.0))
                         total_dx = sum(valid_dx.values())
                         
                         labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
@@ -142,7 +142,6 @@ if df is not None:
                             labels=labels1, 
                             labeldistance=0.5, 
                             startangle=90,
-                            # ลดขนาดฟอนต์เป็น 8
                             textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=plt.cm.tab20.colors,
                             radius=1 
@@ -154,13 +153,13 @@ if df is not None:
                         img_buf1.seek(0)
                         chart_base64_1 = base64.b64encode(img_buf1.read()).decode('utf-8')
                         plt.close(fig1)
-                        # ลดขนาด max-width ให้เล็กลงเพื่อให้พอดีกับกล่อง
-                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:140px; display:block; margin:auto;"/>'
+                        # จำกัด max-width ให้ไม่เกิน 110px
+                        chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_1}" style="width:100%; max-width:110px; display:block; margin:auto;"/>'
                     else:
-                        chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล Dx</p>"
+                        chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 10pt;'>ไม่มีข้อมูล Dx</p>"
 
                     # ==========================================
-                    # 📊 2. กราฟวงกลม สรุปเคสสี
+                    # 📊 2. กราฟวงกลม สรุปเคสสี (ปรับลดขนาดสำหรับแนวตั้ง)
                     # ==========================================
                     color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                     level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
@@ -176,8 +175,8 @@ if df is not None:
                     level_chart_img_tag = ""
                     
                     if active_levels:
-                        # ลดขนาด figure ลงจาก 2.8 เป็น 2.2
-                        fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
+                        # ปรับ figsize ให้เล็กลงสำหรับ A4 แนวตั้ง
+                        fig2, ax2 = plt.subplots(figsize=(2.0, 2.0))
                         colors2 = [color_map[k] for k in active_levels.keys()]
                         total_levels = sum(active_levels.values())
                         
@@ -186,7 +185,6 @@ if df is not None:
                             autopct=lambda p: f"{int(round(p * total_levels / 100))}\n({p:.1f}%)",
                             startangle=90,
                             labeldistance=0.5,
-                            # ลดขนาดฟอนต์เป็น 8
                             textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'},
                             colors=colors2,
                             radius=1 
@@ -198,10 +196,9 @@ if df is not None:
                         img_buf2.seek(0)
                         chart_base64_2 = base64.b64encode(img_buf2.read()).decode('utf-8')
                         plt.close(fig2)
-                        # ลดขนาด max-width
-                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:140px; display:block; margin:auto;"/>'
+                        level_chart_img_tag = f'<img src="data:image/png;base64,{chart_base64_2}" style="width:100%; max-width:110px; display:block; margin:auto;"/>'
                     else:
-                        level_chart_img_tag = "<p style='text-align:center; color:#94a3b8;'>ไม่มีข้อมูล</p>"
+                        level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 10pt;'>ไม่มีข้อมูล</p>"
 
                     # ==========================================
                     # 🖼️ ดึงไฟล์ภาพโลโก้จากลิงก์ Google Drive
@@ -213,16 +210,16 @@ if df is not None:
                     bottom_sections = ""
                     if problem_text.strip():
                         bottom_sections += f"""
-                        <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 15px; margin-top: 20px; border-radius: 4px;">
-                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 13pt;">ปัญหา / อุปสรรค</h3>
-                            <p style="margin: 0; line-height: 1.6; white-space: pre-line;">{problem_text}</p>
+                        <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; margin-top: 15px; border-radius: 4px;">
+                            <h3 style="color: #b91c1c; margin-top: 0; font-size: 12pt;">ปัญหา / อุปสรรค</h3>
+                            <p style="margin: 0; line-height: 1.5; white-space: pre-line; font-size: 11pt;">{problem_text}</p>
                         </div>
                         """
                     if suggestion_text.strip():
                         bottom_sections += f"""
-                        <div style="background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 15px; margin-top: 15px; border-radius: 4px;">
-                            <h3 style="color: #15803d; margin-top: 0; font-size: 13pt;">ข้อเสนอแนะ</h3>
-                            <p style="margin: 0; line-height: 1.6; white-space: pre-line;">{suggestion_text}</p>
+                        <div style="background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 12px; margin-top: 15px; border-radius: 4px;">
+                            <h3 style="color: #15803d; margin-top: 0; font-size: 12pt;">ข้อเสนอแนะ</h3>
+                            <p style="margin: 0; line-height: 1.5; white-space: pre-line; font-size: 11pt;">{suggestion_text}</p>
                         </div>
                         """
 
@@ -234,20 +231,22 @@ if df is not None:
                     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                     <style>
                         @page {{ 
-                            size: A4 landscape; 
-                            margin: 10mm 15mm 15mm 15mm; 
+                            size: A4 portrait; /* เปลี่ยนเป็นแนวตั้ง */
+                            /* ขอบบน 10mm (1ซม.), ขวา 10mm, ล่าง 15mm, ซ้าย 10mm */
+                            margin: 10mm 10mm 15mm 10mm; 
                         }}
                         body {{ 
                             font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; 
-                            font-size: 12pt; 
+                            font-size: 11pt; 
                             color: #334155; 
                             line-height: 1.5;
                         }}
                         
+                        /* โครงสร้างส่วนหัว (Header) */
                         .header-table {{
                             width: 100%;
                             border-collapse: collapse;
-                            margin-bottom: 25px;
+                            margin-bottom: 20px;
                             border-bottom: 2px solid #cbd5e1; 
                         }}
                         .header-table td {{
@@ -256,15 +255,15 @@ if df is not None:
                             vertical-align: bottom;
                         }}
                         .header-logo {{
-                            width: 180px;
+                            width: 130px; /* ลดขนาดกรอบโลโก้ลงให้พอดีกับแนวตั้ง */
                             text-align: center;
                         }}
                         .header-logo img {{
-                            width: 65px; 
+                            width: 55px; /* ลดขนาดโลโก้ลงเล็กน้อย */
                             height: auto;
                         }}
                         .header-logo p {{
-                            font-size: 11pt;
+                            font-size: 10pt;
                             font-weight: bold;
                             color: #1e293b;
                             margin-top: 5px;
@@ -276,49 +275,51 @@ if df is not None:
                             color: #0f172a; 
                             margin: 0;
                             padding: 0;
-                            font-size: 22pt;
+                            font-size: 18pt; /* ลดขนาดหัวข้อลงนิดหน่อย */
                         }}
                         
                         /* บังคับให้ตารางแบ่งสัดส่วนเท่ากันพอดี 100% / 3 = 33.33% */
                         .summary-container {{
                             width: 100%;
                             border-collapse: separate;
-                            border-spacing: 15px 0; 
-                            margin-bottom: 25px;
-                            table-layout: fixed; /* ล็อกความกว้างเซลล์ให้เท่ากัน */
+                            border-spacing: 8px 0; /* ลดระยะห่างระหว่างกล่อง */
+                            margin-bottom: 20px;
+                            table-layout: fixed;
                         }}
                         .summary-box {{
                             background-color: #f8fafc;
                             border: 1px solid #e2e8f0;
                             border-radius: 8px;
-                            padding: 15px 20px;
+                            padding: 10px; /* ลด padding เพื่อเพิ่มพื้นที่ข้างใน */
                             vertical-align: middle;
-                            width: 33.33%; /* ให้ทั้ง 3 กล่องกว้างเท่ากัน */
+                            width: 33.33%; 
                         }}
                         .summary-box h3 {{
                             margin-top: 0; 
                             color: #0369a1; 
-                            font-size: 14pt;
+                            font-size: 12pt;
                             border-bottom: 1px solid #cbd5e1;
-                            padding-bottom: 8px;
-                            margin-bottom: 12px;
+                            padding-bottom: 6px;
+                            margin-bottom: 8px;
                         }}
 
+                        /* ตารางข้อมูล - ปรับขนาดฟอนต์ให้พอดีกับแนวตั้ง */
                         .data-table {{ 
                             width: 100%; 
                             border-collapse: collapse; 
                             margin-top: 10px;
+                            table-layout: auto;
                         }}
                         .data-table th, .data-table td {{ 
-                            padding: 10px 8px; 
+                            padding: 6px 4px; /* ลด padding ซ้ายขวาไม่ให้ล้น */
                             vertical-align: middle; 
+                            font-size: 10.5pt; /* ลดขนาดฟอนต์ของตารางให้อ่านได้ในแนวตั้ง */
                         }}
                         .data-table th {{ 
                             background-color: #1e293b; 
                             color: #ffffff; 
                             text-align: center;
                             font-weight: 600;
-                            font-size: 12pt;
                         }}
                         .data-table td {{
                             border-bottom: 1px solid #e2e8f0;
@@ -328,7 +329,7 @@ if df is not None:
                         }}
 
                         .signature-section {{ 
-                            margin-top: 40px; 
+                            margin-top: 30px; 
                             text-align: left; 
                             page-break-inside: avoid; 
                         }}
@@ -336,30 +337,31 @@ if df is not None:
                     </head>
                     <body>
                         
+                        <!-- ส่วนหัวใหม่ (ตารางป้องกันการทับเส้น) -->
                         <table class="header-table">
                             <tr>
                                 <td class="header-logo">
                                     <img src="{logo_src}" alt="Logo">
                                     <p>สถานพยาบาลเรือนจำ<br>จังหวัดบุรีรัมย์</p>
                                 </td>
-                                <td>
+                                <td style="vertical-align: middle;">
                                     <h1>{title_text}</h1>
                                 </td>
-                                <td style="width: 180px;"></td>
+                                <td style="width: 130px;"></td> <!-- บาลานซ์ฝั่งขวา -->
                             </tr>
                         </table>
                         
-                        <table class="summary-container" style="margin-left: -15px; margin-right: -15px; width: calc(100% + 30px);">
+                        <table class="summary-container">
                             <tr>
                                 <td class="summary-box" style="vertical-align: top;">
                                     <h3>สรุปสถานะผู้ป่วย</h3>
-                                    <p style="margin: 10px 0 0 0; line-height: 1.8;">
-                                        <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ชาย {old_m}, หญิง {old_f})<br>
-                                        <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ชาย {new_m}, หญิง {new_f})
+                                    <p style="margin: 5px 0 0 0; line-height: 1.6; font-size: 10.5pt;">
+                                        <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
+                                        <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
                                     </p>
                                 </td>
                                 <td class="summary-box" style="text-align: center;">
-                                    <h3 style="text-align: left;">สรุปการวินิจฉัยโรค (Dx)</h3>
+                                    <h3 style="text-align: left;">สรุปการวินิจฉัยโรค</h3>
                                     {chart_img_tag}
                                 </td>
                                 <td class="summary-box" style="text-align: center;">
@@ -374,12 +376,12 @@ if df is not None:
                                 <tr>
                                     <th style="width: 5%;">ที่</th>
                                     <th style="width: 16%;">ชื่อ-สกุล</th>
-                                    <th style="width: 8%;">สถานะ</th>
-                                    <th style="width: 10%;">Dx</th>
-                                    <th style="width: 32%;">อาการปัจจุบัน</th>
+                                    <th style="width: 7%;">สถานะ</th>
+                                    <th style="width: 9%;">Dx</th>
+                                    <th style="width: 30%;">อาการปัจจุบัน</th>
                                     <th style="width: 6%;">ระดับ</th>
-                                    <th style="width: 10%;">นัดครั้งถัดไป</th>
-                                    <th style="width: 13%;">แพทย์</th>
+                                    <th style="width: 13%;">นัดครั้งถัดไป</th>
+                                    <th style="width: 14%;">แพทย์</th>
                                 </tr>
                             </thead>
                             <tbody>{html_rows}</tbody>
@@ -391,8 +393,8 @@ if df is not None:
                             <p style="margin-bottom: 20px; line-height: 1.6;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
                             <br><br><br>
                             <div style="display: inline-block; text-align: center;">
-                                <p style="margin: 0; font-size: 13pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
-                                <p style="margin: 5px 0 0 0; color: #475569;">นักจิตวิทยาปฏิบัติการ</p>
+                                <p style="margin: 0; font-size: 12pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
+                                <p style="margin: 5px 0 0 0; color: #475569; font-size: 11pt;">นักจิตวิทยาปฏิบัติการ</p>
                             </div>
                         </div>
                     </body>
