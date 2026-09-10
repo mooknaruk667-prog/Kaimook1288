@@ -243,45 +243,28 @@ if df is not None:
                             level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
 
                         # ==========================================
-                        # 📊 กราฟวงกลม สรุปเพศ (เพิ่มการลากเส้นชี้และบอก %)
+                        # 📊 กราฟวงกลม สรุปเพศ
                         # ==========================================
                         gender_counts = {'ชาย': old_m + new_m, 'หญิง': old_f + new_f}
                         active_genders = {k: v for k, v in gender_counts.items() if v > 0}
                         gender_chart_img_tag = ""
                         if active_genders:
-                            fig3, ax3 = plt.subplots(figsize=(2.6, 2.6))
+                            fig3, ax3 = plt.subplots(figsize=(2.2, 2.2))
                             colors3 = ['#3b82f6' if k == 'ชาย' else '#ec4899' for k in active_genders.keys()]
                             total_genders = sum(active_genders.values())
-                            
-                            # เตรียมข้อความ "ชาย 15 (60.0%)"
-                            labels3 = [f"{k}\n{v} ({v/total_genders*100:.1f}%)" for k, v in active_genders.items()]
-                            
-                            wedges3, texts3 = ax3.pie(
-                                active_genders.values(), 
-                                startangle=90, 
-                                colors=colors3, 
-                                radius=0.60 # ปรับขนาดวงให้มีพื้นที่ขีดเส้น
+                            wedges3, texts3, autotexts3 = ax3.pie(
+                                active_genders.values(), labels=active_genders.keys(), 
+                                autopct=lambda p: f"{int(round(p * total_genders / 100))}\n({p:.1f}%)",
+                                startangle=90, labeldistance=1.1, textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'}, 
+                                colors=colors3, radius=0.75 
                             )
-                            
-                            # ตีเส้นชี้ข้อความออกด้านนอก
-                            kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
-                            for i, p in enumerate(wedges3):
-                                ang = (p.theta2 - p.theta1)/2. + p.theta1
-                                y = np.sin(np.deg2rad(ang))
-                                x = np.cos(np.deg2rad(ang))
-                                x_sign = -1 if x < 0 else 1
-                                horizontalalignment = "right" if x_sign == -1 else "left"
-                                kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={ang}"})
-                                
-                                ax3.annotate(labels3[i], xy=(x*0.60, y*0.60), xytext=(0.85*x_sign, 0.9*y),
-                                             horizontalalignment=horizontalalignment, fontsize=8, color='#111827', **kw)
-                                
+                            for autotext in autotexts3:
+                                autotext.set_color('white')
                             ax3.axis('equal')
                             img_buf3 = io.BytesIO()
                             plt.savefig(img_buf3, format='png', bbox_inches='tight', transparent=True, dpi=120)
                             img_buf3.seek(0)
-                            # ขยาย max-width ให้แสดงข้อความที่ยื่นออกมาได้พอดี
-                            gender_chart_img_tag = f'<img src="data:image/png;base64,{base64.b64encode(img_buf3.read()).decode("utf-8")}" style="width:100%; max-width:160px; display:block; margin:auto; margin-top: 10px;"/>'
+                            gender_chart_img_tag = f'<img src="data:image/png;base64,{base64.b64encode(img_buf3.read()).decode("utf-8")}" style="width:100%; max-width:110px; display:block; margin:auto; margin-top: 10px;"/>'
                             plt.close(fig3)
                         else:
                             gender_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
