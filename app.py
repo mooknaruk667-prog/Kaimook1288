@@ -101,17 +101,16 @@ if df is not None:
                 st.markdown("---")
                 st.subheader("📊 สรุปข้อมูลเบื้องต้นก่อนพิมพ์")
                 
-                # คำนวณตัวเลขต่างๆ สำหรับแสดงบนเว็บ
+                # คำนวณตัวเลข
                 total_patients = len(filtered_df)
                 new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
                 red_cases = sum(filtered_df['หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
                 
-                # ดึงคอลัมน์เพศมาคำนวณแสดงเฉพาะบนเว็บ
+                # ดึงคอลัมน์เพศมาคำนวณ
                 filtered_df['เพศ'] = filtered_df['เพศ'].astype(str).str.strip()
                 male_count = len(filtered_df[filtered_df['เพศ'] == 'ชาย'])
                 female_count = len(filtered_df[filtered_df['เพศ'] == 'หญิง'])
                 
-                # แสดงตัวเลข 5 คอลัมน์บนเว็บ
                 dash_col1, dash_col2, dash_col3, dash_col4, dash_col5 = st.columns(5)
                 dash_col1.metric("👥 รวม (ตามตัวกรอง)", f"{total_patients} ราย")
                 dash_col2.metric("👨 ผู้ป่วยชาย", f"{male_count} ราย")
@@ -120,12 +119,24 @@ if df is not None:
                 dash_col5.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย")
                 
                 # ==========================================
-                # 📋 2. ตาราง Preview ข้อมูลบนเว็บ
+                # 📋 2. ตาราง Preview ข้อมูลบนเว็บ (ไฮไลต์เคสแดง)
                 # ==========================================
-                st.markdown("**📋 Preview รายชื่อผู้ป่วย:**")
-                preview_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์'] # เพิ่ม 'เพศ' ใน preview
+                st.markdown("**📋 Preview รายชื่อผู้ป่วย (ไฮไลต์พื้นหลังเคสสีแดง):**")
+                preview_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์']
                 avail_cols = [c for c in preview_cols if c in filtered_df.columns]
-                st.dataframe(filtered_df[avail_cols], use_container_width=True, hide_index=True)
+                
+                # ฟังก์ชันสำหรับใส่สีพื้นหลังแดงบนเว็บ
+                def highlight_red_preview(subset_df):
+                    styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
+                    # ตรวจสอบเคสแดงจากคอลัมน์ 'หน้า'
+                    red_mask = filtered_df.loc[subset_df.index, 'หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
+                    for col in styles.columns:
+                        styles.loc[red_mask, col] = 'background-color: #fee2e2;' # สีชมพู/แดงอ่อน
+                    return styles
+
+                # นำสไตล์ไปประยุกต์ใช้กับตารางแสดงผลบน Streamlit
+                styled_preview = filtered_df[avail_cols].style.apply(highlight_red_preview, axis=None)
+                st.dataframe(styled_preview, use_container_width=True, hide_index=True)
                 st.markdown("---")
                 
                 if st.button("🚀 สร้าง PDF", type="primary"):
@@ -156,7 +167,7 @@ if df is not None:
                             appt = str(row.get('นัด', '')).replace('nan', '')
                             doc = str(row.get('แพทย์', '')).replace('nan', '')
                             
-                            # เอาสีพื้นหลังความเสี่ยงออก ใช้ <tr> ธรรมดา
+                            # ตารางใน PDF ใช้ <tr> ธรรมดา ไม่มีไฮไลต์สีแดง
                             html_rows += f"""<tr>
                                 <td style="text-align:center;">{row_num}</td>
                                 <td style="font-weight:bold; color:#1e293b;">{name}</td>
@@ -330,7 +341,6 @@ if df is not None:
                             
                             <table class="summary-container">
                                 <tr>
-                                    <!-- นำวงกลมเพศออก ให้เหลือเพียงข้อความสรุปตามเดิมใน PDF -->
                                     <td class="summary-box" style="text-align: left;">
                                         <h3>สรุปสถานะผู้ป่วย</h3>
                                         <p style="margin: 0 0 5px 0; line-height: 1.5; font-size: 9pt;">
