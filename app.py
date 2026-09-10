@@ -101,21 +101,29 @@ if df is not None:
                 st.markdown("---")
                 st.subheader("📊 สรุปข้อมูลเบื้องต้นก่อนพิมพ์")
                 
-                # คำนวณตัวเลข
+                # คำนวณตัวเลขต่างๆ สำหรับแสดงบนเว็บ
                 total_patients = len(filtered_df)
                 new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
                 red_cases = sum(filtered_df['หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
                 
-                dash_col1, dash_col2, dash_col3 = st.columns(3)
-                dash_col1.metric("👥 ผู้ป่วยทั้งหมด (ตามตัวกรอง)", f"{total_patients} ราย")
-                dash_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย")
-                dash_col3.metric("🚨 เคสเฝ้าระวัง (สีแดง)", f"{red_cases} ราย")
+                # ดึงคอลัมน์เพศมาคำนวณแสดงเฉพาะบนเว็บ
+                filtered_df['เพศ'] = filtered_df['เพศ'].astype(str).str.strip()
+                male_count = len(filtered_df[filtered_df['เพศ'] == 'ชาย'])
+                female_count = len(filtered_df[filtered_df['เพศ'] == 'หญิง'])
+                
+                # แสดงตัวเลข 5 คอลัมน์บนเว็บ
+                dash_col1, dash_col2, dash_col3, dash_col4, dash_col5 = st.columns(5)
+                dash_col1.metric("👥 รวม (ตามตัวกรอง)", f"{total_patients} ราย")
+                dash_col2.metric("👨 ผู้ป่วยชาย", f"{male_count} ราย")
+                dash_col3.metric("👩 ผู้ป่วยหญิง", f"{female_count} ราย")
+                dash_col4.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย")
+                dash_col5.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย")
                 
                 # ==========================================
                 # 📋 2. ตาราง Preview ข้อมูลบนเว็บ
                 # ==========================================
                 st.markdown("**📋 Preview รายชื่อผู้ป่วย:**")
-                preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์']
+                preview_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์'] # เพิ่ม 'เพศ' ใน preview
                 avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                 st.dataframe(filtered_df[avail_cols], use_container_width=True, hide_index=True)
                 st.markdown("---")
@@ -139,13 +147,6 @@ if df is not None:
                             if match1: gdrive_id = match1.group(1)
                             elif match2: gdrive_id = match2.group(1)
                                 
-                            # ไฮไลต์สีพื้นหลังแถวสำหรับเคสแดงและส้ม
-                            row_bg_color = ""
-                            if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: # สีแดง
-                                row_bg_color = "background-color: #fee2e2;" 
-                            elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: # สีส้ม
-                                row_bg_color = "background-color: #ffedd5;" 
-                                
                             if gdrive_id:
                                 direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
                                 img_tag = f'<img src="{direct_img_url}" style="width:26px;height:26px;object-fit:cover;border-radius:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"/>'
@@ -155,7 +156,8 @@ if df is not None:
                             appt = str(row.get('นัด', '')).replace('nan', '')
                             doc = str(row.get('แพทย์', '')).replace('nan', '')
                             
-                            html_rows += f"""<tr style="{row_bg_color}">
+                            # เอาสีพื้นหลังความเสี่ยงออก ใช้ <tr> ธรรมดา
+                            html_rows += f"""<tr>
                                 <td style="text-align:center;">{row_num}</td>
                                 <td style="font-weight:bold; color:#1e293b;">{name}</td>
                                 <td>{status}</td>
@@ -165,9 +167,6 @@ if df is not None:
                                 <td style="color:#0369a1;">{appt}</td>
                                 <td>{doc}</td>
                             </tr>"""
-
-                        filtered_df['สถานะ'] = filtered_df['สถานะ'].astype(str).str.strip()
-                        filtered_df['เพศ'] = filtered_df['เพศ'].astype(str).str.strip()
 
                         old_cases = filtered_df[filtered_df['สถานะ'] == 'รายเก่า']
                         new_cases = filtered_df[filtered_df['สถานะ'] == 'รายใหม่']
@@ -241,33 +240,6 @@ if df is not None:
                             plt.close(fig2)
                         else:
                             level_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
-
-                        # ==========================================
-                        # 📊 กราฟวงกลม สรุปเพศ
-                        # ==========================================
-                        gender_counts = {'ชาย': old_m + new_m, 'หญิง': old_f + new_f}
-                        active_genders = {k: v for k, v in gender_counts.items() if v > 0}
-                        gender_chart_img_tag = ""
-                        if active_genders:
-                            fig3, ax3 = plt.subplots(figsize=(2.2, 2.2))
-                            colors3 = ['#3b82f6' if k == 'ชาย' else '#ec4899' for k in active_genders.keys()]
-                            total_genders = sum(active_genders.values())
-                            wedges3, texts3, autotexts3 = ax3.pie(
-                                active_genders.values(), labels=active_genders.keys(), 
-                                autopct=lambda p: f"{int(round(p * total_genders / 100))}\n({p:.1f}%)",
-                                startangle=90, labeldistance=1.1, textprops={'fontsize': 8, 'color': '#111827', 'weight': 'normal', 'ha': 'center'}, 
-                                colors=colors3, radius=0.75 
-                            )
-                            for autotext in autotexts3:
-                                autotext.set_color('white')
-                            ax3.axis('equal')
-                            img_buf3 = io.BytesIO()
-                            plt.savefig(img_buf3, format='png', bbox_inches='tight', transparent=True, dpi=120)
-                            img_buf3.seek(0)
-                            gender_chart_img_tag = f'<img src="data:image/png;base64,{base64.b64encode(img_buf3.read()).decode("utf-8")}" style="width:100%; max-width:110px; display:block; margin:auto; margin-top: 10px;"/>'
-                            plt.close(fig3)
-                        else:
-                            gender_chart_img_tag = "<p style='text-align:center; color:#94a3b8; font-size: 9pt;'>ไม่มีข้อมูล</p>"
 
                         # ==========================================
                         # 🖼️ สร้าง HTML และ PDF
@@ -358,13 +330,13 @@ if df is not None:
                             
                             <table class="summary-container">
                                 <tr>
+                                    <!-- นำวงกลมเพศออก ให้เหลือเพียงข้อความสรุปตามเดิมใน PDF -->
                                     <td class="summary-box" style="text-align: left;">
                                         <h3>สรุปสถานะผู้ป่วย</h3>
                                         <p style="margin: 0 0 5px 0; line-height: 1.5; font-size: 9pt;">
                                             <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
                                             <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
                                         </p>
-                                        {gender_chart_img_tag}
                                     </td>
                                     <td class="summary-box" style="text-align: center;"><h3>สรุปการวินิจฉัยโรค</h3>{chart_img_tag}</td>
                                     <td class="summary-box" style="text-align: center;"><h3>สรุปเคสตามระดับสี</h3>{level_chart_img_tag}</td>
