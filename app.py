@@ -34,9 +34,9 @@ plt.switch_backend('Agg')
 # ==========================================
 # 🚀 เริ่มต้นโปรแกรม Streamlit
 # ==========================================
-st.set_page_config(page_title="ระบบสร้างรายงาน Telepsychiatry", page_icon="📄", layout="wide")
+st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="📄", layout="wide")
 
-st.title("📄 ระบบสร้างรายงาน Telepsychiatry")
+st.title("📄 ระบบ Report ข้อมูลจิตเวช")
 st.markdown("ระบบสรุปข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel)")
 
 # URL ของ Google Sheet
@@ -115,7 +115,7 @@ if df is not None:
                 # ==========================================
                 # 🗂️ แยกแท็บ (Tabs) สำหรับ PDF และ Excel
                 # ==========================================
-                tab_pdf, tab_excel = st.tabs(["📄 สร้างรายงาน PDF (ผู้บริหาร)", "📊 สร้างรายงานทั่วไป (Excel)"])
+                tab_pdf, tab_excel = st.tabs(["📄 รายงานข้อมูลจิตเวช", "📊 สร้างรายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
                 # TAB 1: PDF Report
@@ -245,9 +245,9 @@ if df is not None:
                             # สร้าง HTML
                             logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
                             if "ทั้งหมด" in selected_dates:
-                                title_text = "รายงาน Telepsychiatry"
+                                title_text = "รายงานข้อมูลจิตเวช"
                             else:
-                                title_text = f"รายงาน Telepsychiatry วันที่ {', '.join(selected_dates)}"
+                                title_text = f"รายงานข้อมูลจิตเวช วันที่ {', '.join(selected_dates)}"
 
                             bottom_sections = ""
                             if problem_text.strip():
@@ -342,7 +342,7 @@ if df is not None:
                             st.download_button(
                                 label="📥 คลิกที่นี่เพื่อดาวน์โหลดไฟล์ PDF",
                                 data=pdf_bytes,
-                                file_name=f"Telepsychiatry_Report_{file_date_str}.pdf",
+                                file_name=f"Psychiatric_Report_{file_date_str}.pdf",
                                 mime="application/pdf"
                             )
                             
@@ -383,7 +383,7 @@ if df is not None:
                         st.download_button(
                             label="📥 ดาวน์โหลดไฟล์ Excel (.xlsx)",
                             data=buffer.getvalue(),
-                            file_name=f"Telepsychiatry_Data_{file_date_str}.xlsx",
+                            file_name=f"Psychiatric_Data_{file_date_str}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             type="primary"
                         )
