@@ -184,7 +184,9 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
+                            # ==========================================
                             # กราฟ 1 Dx
+                            # ==========================================
                             dx_counts = filtered_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -196,11 +198,19 @@ if df is not None:
                                 kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
                                 for i, p in enumerate(wedges1):
                                     ang = (p.theta2 - p.theta1)/2. + p.theta1
+                                    
+                                    # [🔥 ส่วนที่แก้ไขเพื่อป้องกัน ValueError (Given lines do not intersect)]
+                                    safe_ang = ang
+                                    if abs(safe_ang % 180) < 1:  # ถ้ามุมขนานกับเส้นแนวนอน (0 หรือ 180 องศา) พอดี
+                                        safe_ang += 1.0          # ให้ขยับมุมไป 1 องศาเพื่อไม่ให้เกิด Error เส้นขนาน
+                                    # -----------------------------------------------------------
+                                        
                                     y = np.sin(np.deg2rad(ang))
                                     x = np.cos(np.deg2rad(ang))
                                     x_sign = -1 if x < 0 else 1
                                     horizontalalignment = "right" if x_sign == -1 else "left"
-                                    kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={ang}"})
+                                    
+                                    kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={safe_ang}"})
                                     ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.75*x_sign, 0.8*y),
                                                  horizontalalignment=horizontalalignment, fontsize=8, color='#111827', **kw) 
                                 ax1.axis('equal') 
