@@ -91,7 +91,7 @@ def generate_excel_with_images(export_df, export_cols):
 # ==========================================
 st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="🌿", layout="wide")
 
-# แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI
+# 🔥 แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI / SaaS Dashboard
 st.markdown("""
 <style>
     .stApp { background-color: #F8FAFC; }
@@ -280,11 +280,9 @@ if df is not None:
                     
                     st.markdown("**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
                     
-                    # ลำดับคอลัมน์ Preview: ตัดเพศออก เพิ่มหน้า และ นัด
                     preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'แพทย์']
                     avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
-                    # คัดลอก DataFrame สำหรับแสดงผลภาพในหน้าเว็บ
                     pdf_display_df = filtered_df[avail_cols].copy()
                     
                     def get_direct_url_preview(url):
@@ -302,7 +300,6 @@ if df is not None:
                     if 'หน้า' in pdf_display_df.columns:
                         pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(get_direct_url_preview)
 
-                    # 🔥 ใช้ data_editor พร้อมเปลี่ยน 'หน้า' ให้แสดงเป็นภาพ ImageColumn
                     edited_pdf_display = st.data_editor(
                         pdf_display_df,
                         use_container_width=True, 
@@ -316,7 +313,6 @@ if df is not None:
                         }
                     )
                     
-                    # รวมค่าที่แก้ไขกลับไปยัง filtered_df เพื่อนำไปสร้าง PDF ได้อย่างแม่นยำ
                     edited_df = filtered_df.copy()
                     for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'แพทย์']:
                         if col in edited_pdf_display.columns and col in edited_df.columns:
@@ -367,18 +363,39 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                            # กราฟ Dx (PDF)
+                            # ==================================
+                            # 🔥 กราฟ Dx (PDF) - กู้คืนเส้นชี้ (Callout Lines)
+                            # ==================================
                             dx_counts = edited_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                             if valid_dx:
                                 fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
-                                wedges1, texts1, autotexts1 = ax1.pie(
-                                    valid_dx.values(), labels=list(valid_dx.keys()), 
-                                    autopct=lambda p: f"{int(round(p * sum(valid_dx.values()) / 100))} ({p:.1f}%)",
-                                    startangle=90, colors=plt.cm.tab20.colors,
-                                    textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
-                                )
+                                total_dx = sum(valid_dx.values())
+                                labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
+                                
+                                # วาดเฉพาะชิ้นเค้ก
+                                wedges1, texts1 = ax1.pie(valid_dx.values(), startangle=90, colors=plt.cm.tab20.colors, radius=0.55)
+                                
+                                # วาดเส้นชี้และข้อความ
+                                kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
+                                for i, p in enumerate(wedges1):
+                                    ang = (p.theta2 - p.theta1)/2. + p.theta1
+                                    
+                                    safe_ang = ang
+                                    if abs(safe_ang % 180) < 1:  
+                                        safe_ang += 1.0          
+                                        
+                                    y = np.sin(np.deg2rad(ang))
+                                    x = np.cos(np.deg2rad(ang))
+                                    x_sign = -1 if x < 0 else 1
+                                    horizontalalignment = "right" if x_sign == -1 else "left"
+                                    
+                                    kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={safe_ang}"})
+                                    ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.75*x_sign, 0.8*y),
+                                                 horizontalalignment=horizontalalignment, fontsize=8, color='#111827', 
+                                                 fontfamily=THAI_FONT_NAME, **kw)
+                                                 
                                 ax1.axis('equal') 
                                 img_buf1 = io.BytesIO()
                                 plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
@@ -388,7 +405,9 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี (PDF) 
+                            # ==================================
+                            # กราฟระดับสี (PDF) - แบบไม่มีเส้นชี้
+                            # ==================================
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
