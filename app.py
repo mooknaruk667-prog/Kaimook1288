@@ -299,7 +299,7 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี (PDF) - ซ่อนข้อความนอกวงกลม
+                            # กราฟระดับสี (PDF) - ซ่อนข้อความนอกวงกลม (แก้ไขเพิ่มตัวแปร texts2)
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -320,8 +320,8 @@ if df is not None:
                                 fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                                 colors2 = [color_map[k] for k in active_levels.keys()]
                                 
-                                # ลบ labels ออก เพื่อให้กราฟไม่มีข้อความระบุชื่อระดับสีด้านนอก
-                                wedges2, autotexts2 = ax2.pie(
+                                # ลบ labels ออก และรับค่าตัวแปรให้ครบ 3 ตัวเพื่อป้องกัน ValueError
+                                wedges2, texts2, autotexts2 = ax2.pie(
                                     active_levels.values(), 
                                     autopct=lambda p: f"{int(round(p * sum(active_levels.values()) / 100))} ({p:.1f}%)",
                                     startangle=90, colors=colors2,
