@@ -11,29 +11,28 @@ import urllib.request
 import matplotlib.font_manager as fm
 
 # ==========================================
-# ⚙️ โหลดฟอนต์ Sarabun สำหรับวาดกราฟ
+# ⚙️ โหลดฟอนต์ Sarabun (แก้ปัญหาสี่เหลี่ยมแบบเด็ดขาด)
 # ==========================================
 @st.cache_resource
-def setup_thai_font():
+def download_thai_font():
     font_path = "Sarabun-Regular.ttf"
     if not os.path.exists(font_path):
         try:
             urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Regular.ttf", font_path)
         except Exception:
             pass
-    try:
-        fm.fontManager.addfont(font_path)
-    except Exception:
-        pass
+    return font_path
 
-setup_thai_font()
+THAI_FONT_PATH = download_thai_font()
+try:
+    # ลงทะเบียนฟอนต์เข้าไประบบ และดึงชื่อฟอนต์ที่ระบบรู้จักมาใช้
+    fm.fontManager.addfont(THAI_FONT_PATH)
+    THAI_FONT_NAME = fm.FontProperties(fname=THAI_FONT_PATH).get_name()
+    plt.rcParams['font.family'] = THAI_FONT_NAME
+except Exception:
+    THAI_FONT_NAME = 'sans-serif'
+
 plt.switch_backend('Agg')
-
-# 🔥 บังคับโหลดฟอนต์ภาษาไทยจากไฟล์โดยตรง
-if os.path.exists("Sarabun-Regular.ttf"):
-    THAI_FONT = fm.FontProperties(fname="Sarabun-Regular.ttf", size=8)
-else:
-    THAI_FONT = fm.FontProperties(size=8)
 
 # ==========================================
 # 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
@@ -178,8 +177,6 @@ if df is not None:
                         sizes = []
                         labels = []
                         colors = []
-                        
-                        # ใช้ภาษาอังกฤษ "Male" / "Female" เพื่อแก้ปัญหาสี่เหลี่ยมชัวร์ๆ
                         if male_count > 0:
                             sizes.append(male_count)
                             labels.append('Male')
@@ -189,12 +186,12 @@ if df is not None:
                             labels.append('Female')
                             colors.append('#ec4899')
                             
-                        # เอาคำว่า "คน" ออก เพื่อไม่ให้มีปัญหาภาษาไทย
+                        # วาดกราฟวงกลมพร้อมบังคับใช้ฟอนต์ภาษาไทยผ่าน textprops
                         wedges, texts, autotexts = ax_dash.pie(
                             sizes, labels=labels, 
                             autopct=lambda p: f"{int(round(p * sum(sizes) / 100))}\n({p:.1f}%)",
                             colors=colors, startangle=90,
-                            textprops={'fontsize': 8} # ใช้ฟอนต์ปกติได้เลยเพราะเป็นภาษาอังกฤษล้วน
+                            textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
                         )
                         
                         for autotext in autotexts:
@@ -290,11 +287,9 @@ if df is not None:
                                 wedges1, texts1, autotexts1 = ax1.pie(
                                     valid_dx.values(), labels=list(valid_dx.keys()), 
                                     autopct=lambda p: f"{int(round(p * sum(valid_dx.values()) / 100))} ({p:.1f}%)",
-                                    startangle=90, colors=plt.cm.tab20.colors
+                                    startangle=90, colors=plt.cm.tab20.colors,
+                                    textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
                                 )
-                                for t in texts1 + autotexts1:
-                                    t.set_fontproperties(THAI_FONT)
-                                    
                                 ax1.axis('equal') 
                                 img_buf1 = io.BytesIO()
                                 plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
@@ -304,7 +299,7 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี (PDF)
+                            # กราฟระดับสี (PDF) - ซ่อนข้อความนอกวงกลม
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -324,14 +319,14 @@ if df is not None:
                             if active_levels:
                                 fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                                 colors2 = [color_map[k] for k in active_levels.keys()]
-                                wedges2, texts2, autotexts2 = ax2.pie(
-                                    active_levels.values(), labels=list(active_levels.keys()), 
+                                
+                                # ลบ labels ออก เพื่อให้กราฟไม่มีข้อความระบุชื่อระดับสีด้านนอก
+                                wedges2, autotexts2 = ax2.pie(
+                                    active_levels.values(), 
                                     autopct=lambda p: f"{int(round(p * sum(active_levels.values()) / 100))} ({p:.1f}%)",
-                                    startangle=90, colors=colors2
+                                    startangle=90, colors=colors2,
+                                    textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
                                 )
-                                for t in texts2 + autotexts2:
-                                    t.set_fontproperties(THAI_FONT)
-                                    
                                 ax2.axis('equal')
                                 img_buf2 = io.BytesIO()
                                 plt.savefig(img_buf2, format='png', bbox_inches='tight', transparent=True, dpi=120)
