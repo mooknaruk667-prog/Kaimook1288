@@ -23,12 +23,17 @@ def setup_thai_font():
             pass
     try:
         fm.fontManager.addfont(font_path)
-        plt.rcParams['font.family'] = 'Sarabun'
     except Exception:
         pass
 
 setup_thai_font()
 plt.switch_backend('Agg')
+
+# 🔥 บังคับโหลดฟอนต์ภาษาไทยจากไฟล์โดยตรง เพื่อแก้ปัญหาสี่เหลี่ยมชัวร์ 100%
+if os.path.exists("Sarabun-Regular.ttf"):
+    THAI_FONT = fm.FontProperties(fname="Sarabun-Regular.ttf", size=8)
+else:
+    THAI_FONT = fm.FontProperties(size=8)
 
 # ==========================================
 # 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
@@ -182,13 +187,20 @@ if df is not None:
                             labels.append('หญิง')
                             colors.append('#ec4899')
                             
+                        # วาดกราฟวงกลมพร้อมใส่ตัวเลข และเปอร์เซ็นต์
                         wedges, texts, autotexts = ax_dash.pie(
-                            sizes, labels=labels, autopct='%1.1f%%',
-                            colors=colors, startangle=90, textprops={'fontsize': 8}
+                            sizes, labels=labels, 
+                            autopct=lambda p: f"{int(round(p * sum(sizes) / 100))} คน\n({p:.1f}%)",
+                            colors=colors, startangle=90
                         )
-                        for autotext in autotexts:
-                            autotext.set_color('white')
-                            autotext.set_fontsize(8)
+                        
+                        # บังคับใช้ฟอนต์ภาษาไทยให้แก้ปัญหาสี่เหลี่ยมชัวร์ๆ
+                        for t in texts:
+                            t.set_fontproperties(THAI_FONT)
+                        for t in autotexts:
+                            t.set_fontproperties(THAI_FONT)
+                            t.set_color('white')
+                            
                         ax_dash.axis('equal')
                         
                         st.pyplot(fig_dash)
@@ -270,14 +282,21 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                            # กราฟ Dx
+                            # กราฟ Dx (PDF)
                             dx_counts = filtered_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                             if valid_dx:
                                 fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
-                                ax1.pie(valid_dx.values(), labels=valid_dx.keys(), autopct='%1.1f%%', 
-                                        startangle=90, colors=plt.cm.tab20.colors, textprops={'fontsize': 8})
+                                wedges1, texts1, autotexts1 = ax1.pie(
+                                    valid_dx.values(), labels=list(valid_dx.keys()), 
+                                    autopct=lambda p: f"{int(round(p * sum(valid_dx.values()) / 100))} ({p:.1f}%)",
+                                    startangle=90, colors=plt.cm.tab20.colors
+                                )
+                                # บังคับฟอนต์
+                                for t in texts1 + autotexts1:
+                                    t.set_fontproperties(THAI_FONT)
+                                    
                                 ax1.axis('equal') 
                                 img_buf1 = io.BytesIO()
                                 plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
@@ -287,7 +306,7 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี
+                            # กราฟระดับสี (PDF)
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -307,8 +326,15 @@ if df is not None:
                             if active_levels:
                                 fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                                 colors2 = [color_map[k] for k in active_levels.keys()]
-                                ax2.pie(active_levels.values(), labels=active_levels.keys(), autopct='%1.1f%%',
-                                        startangle=90, colors=colors2, textprops={'fontsize': 8})
+                                wedges2, texts2, autotexts2 = ax2.pie(
+                                    active_levels.values(), labels=list(active_levels.keys()), 
+                                    autopct=lambda p: f"{int(round(p * sum(active_levels.values()) / 100))} ({p:.1f}%)",
+                                    startangle=90, colors=colors2
+                                )
+                                # บังคับฟอนต์
+                                for t in texts2 + autotexts2:
+                                    t.set_fontproperties(THAI_FONT)
+                                    
                                 ax2.axis('equal')
                                 img_buf2 = io.BytesIO()
                                 plt.savefig(img_buf2, format='png', bbox_inches='tight', transparent=True, dpi=120)
@@ -469,10 +495,8 @@ if df is not None:
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
                             type="primary"
                         )
-                    else:
-                        st.warning("⚠️ กรุณาเลือกอย่างน้อย 1 คอลัมน์เพื่อส่งออก")
 
             else:
-                st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
+                 st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
     else:
-        st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
+         st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
