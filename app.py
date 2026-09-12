@@ -31,6 +31,62 @@ setup_thai_font()
 plt.switch_backend('Agg')
 
 # ==========================================
+# 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
+# ==========================================
+@st.cache_data(ttl=300, show_spinner="กำลังเตรียมไฟล์ Excel และดาวน์โหลดรูปภาพ (อาจใช้เวลาสักครู่)...")
+def generate_excel_with_images(export_df, export_cols):
+    import openpyxl
+    from openpyxl.utils import get_column_letter
+    from PIL import Image as PILImage
+    
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        export_df.to_excel(writer, index=False, sheet_name='ข้อมูลผู้ป่วย')
+        
+        # ตรวจสอบว่ามีการเลือกส่งออกคอลัมน์ 'หน้า' หรือไม่
+        if 'หน้า' in export_cols:
+            worksheet = writer.sheets['ข้อมูลผู้ป่วย']
+            col_idx = export_cols.index('หน้า') + 1
+            col_letter = get_column_letter(col_idx)
+            
+            # ขยายความกว้างของคอลัมน์รูปภาพ
+            worksheet.column_dimensions[col_letter].width = 15
+            
+            for row_idx, face_url in enumerate(export_df['หน้า'], start=2): # เริ่มที่แถว 2 (แถว 1 คือหัวตาราง)
+                worksheet.row_dimensions[row_idx].height = 65 # ขยายความสูงของแถว
+                worksheet.cell(row=row_idx, column=col_idx).value = "" # ลบข้อความ URL เดิมออก
+                
+                face_url = str(face_url).strip()
+                match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
+                match2 = re.search(r'id=([a-zA-Z0-9_-]+)', face_url)
+                
+                gdrive_id = None
+                if match1: gdrive_id = match1.group(1)
+                elif match2: gdrive_id = match2.group(1)
+                
+                if gdrive_id:
+                    try:
+                        # โหลดรูปภาพจาก Google Drive
+                        direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
+                        req = urllib.request.Request(direct_img_url, headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req) as response:
+                            img_data = response.read()
+                            img = PILImage.open(io.BytesIO(img_data))
+                            img.thumbnail((80, 80)) # ย่อรูปภาพให้พอดีกับช่อง Excel
+                            
+                            img_byte_arr = io.BytesIO()
+                            img.save(img_byte_arr, format='PNG')
+                            img_byte_arr.seek(0)
+                            
+                            xl_img = openpyxl.drawing.image.Image(img_byte_arr)
+                            xl_img.anchor = f"{col_letter}{row_idx}"
+                            worksheet.add_image(xl_img)
+                    except Exception:
+                        worksheet.cell(row=row_idx, column=col_idx).value = "โหลดรูปไม่ได้"
+                        
+    return buffer.getvalue()
+
+# ==========================================
 # 🚀 เริ่มต้นโปรแกรม Streamlit
 # ==========================================
 st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="📄", layout="wide")
@@ -63,7 +119,7 @@ if df is not None:
         unique_statuses = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['สถานะ'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         
         # ==========================================
-        # 🎛️ ตัวกรองข้อมูล (Selectbox แบบเดี่ยว เสถียรที่สุด)
+        # 🎛️ ตัวกรองข้อมูล (Selectbox แบบเดี่ยว)
         # ==========================================
         col_filter1, col_filter2, col_filter3 = st.columns(3)
         with col_filter1:
@@ -113,7 +169,7 @@ if df is not None:
             tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
             
             # ------------------------------------------
-            # TAB 1: ระบบรายงาน PDF
+            # TAB 1: ระบบรายงาน PDF (คงไว้เหมือนเดิม ไม่มีการเปลี่ยนแปลง)
             # ------------------------------------------
             with tab_pdf:
                 problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -251,7 +307,6 @@ if df is not None:
                         <html lang="th">
                         <head>
                         <meta charset="UTF-8">
-                        <!-- 🔥 เพิ่ม Link ฟอนต์ Sarabun จาก Google Fonts กลับเข้าไปตรงนี้ 🔥 -->
                         <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                         <style>
                             @page {{ size: A4 portrait; margin: 10mm 10mm 15mm 10mm; }}
@@ -321,12 +376,14 @@ if df is not None:
                         st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Report_{file_name_date}.pdf", mime="application/pdf")
                         
             # ------------------------------------------
-            # TAB 2: EXCEL Report
+            # TAB 2: EXCEL Report (ระบบใหม่ โชว์รูปภาพในเซลล์)
             # ------------------------------------------
             with tab_excel:
                 st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
                 all_columns = filtered_df.columns.tolist()
-                default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์', 'นัด'] if c in all_columns]
+                
+                # นำ "หน้า" มาตั้งเป็นค่าเริ่มต้นที่ถูกติ๊กไว้เลย
+                default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'แพทย์', 'นัด'] if c in all_columns]
                     
                 selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_columns, default=default_cols if default_cols else all_columns)
                 
@@ -334,12 +391,17 @@ if df is not None:
                     excel_df = filtered_df[selected_export_cols]
                     st.dataframe(excel_df, use_container_width=True, hide_index=True)
                     
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        excel_df.to_excel(writer, index=False, sheet_name='ข้อมูลผู้ป่วย')
+                    # เรียกใช้ฟังก์ชันดึงรูปภาพ (มีระบบ cache ป้องกันการโหลดซ้ำ)
+                    excel_bytes = generate_excel_with_images(excel_df, selected_export_cols)
                     
                     file_name_date = selected_date.replace('/', '-') if selected_date != 'ทั้งหมด' else 'All'
-                    st.download_button(label="📥 ดาวน์โหลดไฟล์ Excel", data=buffer.getvalue(), file_name=f"Data_{file_name_date}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+                    st.download_button(
+                        label="📥 ดาวน์โหลดไฟล์ Excel (พร้อมรูปภาพ)", 
+                        data=excel_bytes, 
+                        file_name=f"Data_{file_name_date}.xlsx", 
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                        type="primary"
+                    )
 
         else:
              st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
