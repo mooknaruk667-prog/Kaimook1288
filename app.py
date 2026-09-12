@@ -25,7 +25,6 @@ def download_thai_font():
 
 THAI_FONT_PATH = download_thai_font()
 try:
-    # ลงทะเบียนฟอนต์เข้าไประบบ และดึงชื่อฟอนต์ที่ระบบรู้จักมาใช้
     fm.fontManager.addfont(THAI_FONT_PATH)
     THAI_FONT_NAME = fm.FontProperties(fname=THAI_FONT_PATH).get_name()
     plt.rcParams['font.family'] = THAI_FONT_NAME
@@ -95,12 +94,7 @@ st.set_page_config(page_title="ระบบ Report ข้อมูลจิต�
 # 🔥 แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI / SaaS Dashboard
 st.markdown("""
 <style>
-    /* พื้นหลังแอป สะอาดตาแบบ Modern */
-    .stApp {
-        background-color: #F8FAFC; 
-    }
-    
-    /* หัวข้อหลัก เล่น Gradient ทันสมัย */
+    .stApp { background-color: #F8FAFC; }
     h1 {
         background: -webkit-linear-gradient(45deg, #0284c7, #0d9488);
         -webkit-background-clip: text;
@@ -108,112 +102,65 @@ st.markdown("""
         font-weight: 800 !important;
         font-family: 'Sarabun', sans-serif;
     }
-    h2, h3 {
-        color: #1e293b;
-        font-family: 'Sarabun', sans-serif;
-        font-weight: 700;
-    }
+    h2, h3 { color: #1e293b; font-family: 'Sarabun', sans-serif; font-weight: 700; }
     
-    /* กล่อง Metric (สรุปตัวเลข Dashboard ลอยขึ้นมีมิติ) */
     [data-testid="stMetric"] {
-        background-color: #ffffff;
-        border-radius: 16px;
-        padding: 20px;
+        background-color: #ffffff; border-radius: 16px; padding: 20px;
         box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
-        border: 1px solid #e2e8f0;
-        border-left: 6px solid #0ea5e9; /* แถบสีด้านซ้ายดูพรีเมียม */
+        border: 1px solid #e2e8f0; border-left: 6px solid #0ea5e9; 
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     [data-testid="stMetric"]:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
     }
-    
-    /* ข้อความหัวข้อย่อยในกล่อง Metric (ดูอินเตอร์) */
     [data-testid="stMetricLabel"] {
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        color: #64748b !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-size: 13px !important; font-weight: 600 !important;
+        color: #64748b !important; text-transform: uppercase; letter-spacing: 0.5px;
     }
-    
-    /* ตัวเลขในกล่อง Metric (เด่นชัด) */
     [data-testid="stMetricValue"] {
-        font-size: 28px !important; 
-        color: #0f172a !important; 
-        font-weight: 800 !important;
-        margin-top: 5px;
+        font-size: 28px !important; color: #0f172a !important; font-weight: 800 !important; margin-top: 5px;
     }
     
-    /* กล่องตัวกรอง (Multiselect) */
     .stMultiSelect div[data-baseweb="select"] {
-        border-radius: 10px;
-        background-color: #ffffff;
-        border: 1px solid #cbd5e1;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        border-radius: 10px; background-color: #ffffff; border: 1px solid #cbd5e1;
     }
     
-    /* รูปแบบ Tabs สไตล์ Minimal */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        border-bottom: 2px solid #e2e8f0;
-    }
+    .stTabs [data-baseweb="tab-list"] { gap: 12px; border-bottom: 2px solid #e2e8f0; }
     .stTabs [data-baseweb="tab"] {
-        background-color: transparent;
-        border-radius: 8px 8px 0 0;
-        padding: 12px 24px;
-        color: #64748b;
-        font-weight: 600;
-        border: none;
-        transition: all 0.2s;
+        background-color: transparent; border-radius: 8px 8px 0 0;
+        padding: 12px 24px; color: #64748b; font-weight: 600; border: none; transition: all 0.2s;
     }
     .stTabs [aria-selected="true"] {
-        color: #0ea5e9;
-        background-color: #f0f9ff;
-        border-bottom: 3px solid #0ea5e9; /* เส้นใต้แท็บสีฟ้า */
+        color: #0ea5e9; background-color: #f0f9ff; border-bottom: 3px solid #0ea5e9; 
     }
     
-    /* ปุ่มกดหลัก (Gradient Button ทันสมัย) */
     .stButton>button {
-        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-        color: white;
-        border-radius: 10px;
-        border: none;
-        padding: 12px 24px;
-        box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.3);
-        transition: all 0.3s ease;
-        font-weight: 600;
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white;
+        border-radius: 10px; border: none; padding: 12px 24px;
+        box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.3); transition: all 0.3s ease; font-weight: 600;
     }
     .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 10px -1px rgba(14, 165, 233, 0.4);
-        color: white;
-        border: none;
+        transform: translateY(-2px); box-shadow: 0 6px 10px -1px rgba(14, 165, 233, 0.4); color: white;
     }
     
-    /* กรอบตารางข้อมูล (DataFrame) มุมมน */
     [data-testid="stDataFrame"] {
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e2e8f0;
+        border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;
     }
-    
-    /* กล่องข้อความ Text Area */
-    .stTextArea textarea {
-        border-radius: 10px;
-        border: 1px solid #cbd5e1;
-        box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    }
+    .stTextArea textarea { border-radius: 10px; border: 1px solid #cbd5e1; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
-st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
-
 # URL ของ Google Sheet
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
+
+col_title, col_btn = st.columns([3, 1])
+with col_title:
+    st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
+    st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
+with col_btn:
+    st.write("") 
+    # ปุ่มเปิดไฟล์ต้นฉบับ
+    st.link_button("📝 เปิดแก้ไขข้อมูลถาวรบน Google Sheet", SHEET_URL.replace("/export?format=csv", "/edit"), type="secondary", use_container_width=True)
 
 @st.cache_data(ttl=60)
 def load_data(url):
@@ -236,9 +183,6 @@ if df is not None:
         unique_doctors = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['แพทย์'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         unique_statuses = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['สถานะ'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         
-        # ==========================================
-        # 🎛️ ตัวกรองข้อมูล (Multiselect)
-        # ==========================================
         col_filter1, col_filter2, col_filter3 = st.columns(3)
         with col_filter1:
             selected_dates = st.multiselect("📅 เลือกวันที่ (เลือกได้มากกว่า 1):", options=unique_dates, default=["ทั้งหมด"])
@@ -297,11 +241,11 @@ if df is not None:
                         if male_count > 0:
                             sizes.append(male_count)
                             labels.append('Male')
-                            colors.append('#38bdf8') # สีฟ้าทันสมัย
+                            colors.append('#38bdf8') 
                         if female_count > 0:
                             sizes.append(female_count)
                             labels.append('Female')
-                            colors.append('#f472b6') # สีชมพูทันสมัย
+                            colors.append('#f472b6') 
                             
                         wedges, texts, autotexts = ax_dash.pie(
                             sizes, labels=labels, 
@@ -316,7 +260,6 @@ if df is not None:
                             autotext.set_color('#ffffff') 
                             
                         ax_dash.axis('equal')
-                        
                         st.pyplot(fig_dash)
                         plt.close(fig_dash)
                     else:
@@ -330,32 +273,37 @@ if df is not None:
                 tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF (คงไว้ 100%)
+                # TAB 1: ระบบรายงาน PDF (เปิดให้แก้ไขข้อมูลในตารางได้)
                 # ------------------------------------------
                 with tab_pdf:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                     suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
                     
-                    st.markdown("**📋 Preview ข้อมูล (ไฮไลต์เคสวิกฤตเฉพาะบนเว็บ):**")
-                    preview_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์']
-                    avail_cols = [c for c in preview_cols if c in filtered_df.columns]
+                    st.markdown("**📋 Preview ข้อมูล (สามารถดับเบิลคลิกแก้ไขข้อความในตารางชั่วคราวก่อนออก PDF ได้เลย):**")
                     
                     def highlight_red_preview(subset_df):
                         styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
-                        if 'หน้า' in filtered_df.columns:
-                            red_mask = filtered_df.loc[subset_df.index, 'หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
+                        if 'หน้า' in subset_df.columns:
+                            red_mask = subset_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
                             for col in styles.columns:
-                                styles.loc[red_mask, col] = 'background-color: #fee2e2;' 
+                                styles.loc[red_mask, col] = 'background-color: #FCE4EC;' 
                         return styles
 
-                    styled_preview = filtered_df[avail_cols].style.apply(highlight_red_preview, axis=None)
-                    st.dataframe(styled_preview, use_container_width=True, hide_index=True)
+                    # 🔥 ใช้ st.data_editor เพื่อให้ตารางพิมพ์แก้ข้อมูลได้
+                    edited_df = st.data_editor(
+                        filtered_df.style.apply(highlight_red_preview, axis=None),
+                        use_container_width=True, 
+                        hide_index=True,
+                        num_rows="dynamic",
+                        key="pdf_editor"
+                    )
                     
                     if st.button("🚀 สร้างรายงาน PDF", type="primary"):
                         with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
                             
                             html_rows = ""
-                            for row_num, (idx, row) in enumerate(filtered_df.iterrows(), start=1):
+                            # ดึงข้อมูลจาก edited_df (ตารางที่ถูกแก้ข้อความแล้ว) ไปสร้าง PDF
+                            for row_num, (idx, row) in enumerate(edited_df.iterrows(), start=1):
                                 name = str(row.get('ชื่อ-สกุล', '')).replace('nan', '')
                                 status = str(row.get('สถานะ', '')).replace('nan', '')
                                 dx = str(row.get('Dx', '')).replace('nan', '')
@@ -389,15 +337,15 @@ if df is not None:
                                     <td>{doc}</td>
                                 </tr>"""
 
-                            old_cases = filtered_df[filtered_df['สถานะ'] == 'รายเก่า']
-                            new_cases = filtered_df[filtered_df['สถานะ'] == 'รายใหม่']
+                            old_cases = edited_df[edited_df['สถานะ'] == 'รายเก่า']
+                            new_cases = edited_df[edited_df['สถานะ'] == 'รายใหม่']
                             old_m = len(old_cases[old_cases['เพศ'] == 'ชาย'])
                             old_f = len(old_cases[old_cases['เพศ'] == 'หญิง'])
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
                             # กราฟ Dx (PDF)
-                            dx_counts = filtered_df['Dx'].value_counts()
+                            dx_counts = edited_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                             if valid_dx:
@@ -421,8 +369,8 @@ if df is not None:
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
-                            if 'หน้า' in filtered_df.columns:
-                                for face_url in filtered_df['หน้า']:
+                            if 'หน้า' in edited_df.columns:
+                                for face_url in edited_df['หน้า']:
                                     face_url = str(face_url)
                                     if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: level_counts['แดง'] += 1
                                     elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: level_counts['ส้ม'] += 1
@@ -430,7 +378,7 @@ if df is not None:
                                     elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url: level_counts['เขียว'] += 1
                                     else: level_counts['เทา'] += 1
                             else:
-                                level_counts['เทา'] = len(filtered_df)
+                                level_counts['เทา'] = len(edited_df)
                                 
                             active_levels = {k: v for k, v in level_counts.items() if v > 0}
                             level_chart_img_tag = ""
@@ -556,7 +504,7 @@ if df is not None:
                             )
                             
                 # ------------------------------------------
-                # TAB 2: EXCEL Report (คงไว้ 100%)
+                # TAB 2: EXCEL Report (เปิดให้แก้ไขข้อมูลในตารางได้)
                 # ------------------------------------------
                 with tab_excel:
                     st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
@@ -583,23 +531,33 @@ if df is not None:
                                 return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
                             return None
                         
+                        # 🔥 ใช้ st.data_editor เพื่อให้ตารางพิมพ์แก้ข้อมูลชั่วคราวก่อนดาวน์โหลดได้
                         if 'หน้า' in preview_excel_df.columns:
                             preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url)
                             
-                            st.markdown("**📋 Preview ข้อมูลที่จะส่งออก:**")
-                            st.dataframe(
+                            st.markdown("**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
+                            edited_excel_df = st.data_editor(
                                 preview_excel_df, 
                                 use_container_width=True, 
                                 hide_index=True,
+                                num_rows="dynamic",
+                                key="excel_editor",
                                 column_config={
                                     "หน้า": st.column_config.ImageColumn("ระดับ", help="ภาพจาก Google Drive")
                                 }
                             )
                         else:
-                            st.markdown("**📋 Preview ข้อมูลที่จะส่งออก:**")
-                            st.dataframe(preview_excel_df, use_container_width=True, hide_index=True)
+                            st.markdown("**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
+                            edited_excel_df = st.data_editor(
+                                preview_excel_df, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                num_rows="dynamic",
+                                key="excel_editor"
+                            )
                         
-                        excel_bytes = generate_excel_with_images(excel_df, selected_export_cols)
+                        # ดึงข้อมูลจาก edited_excel_df ไปแปลงเป็น Excel
+                        excel_bytes = generate_excel_with_images(edited_excel_df, selected_export_cols)
                         
                         file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
                         st.download_button(
