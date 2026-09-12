@@ -141,7 +141,7 @@ if df is not None:
                 st.markdown("---")
                 
                 # ==========================================
-                # 📊 Dashboard สรุปข้อมูลบนเว็บ (ปรับปรุงใหม่ แสดง % และกราฟวงกลม)
+                # 📊 Dashboard สรุปข้อมูลบนเว็บ
                 # ==========================================
                 total_patients = len(filtered_df)
                 new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
@@ -155,7 +155,6 @@ if df is not None:
                 male_count = len(filtered_df[filtered_df['เพศ'] == 'ชาย'])
                 female_count = len(filtered_df[filtered_df['เพศ'] == 'หญิง'])
                 
-                # คำนวณเปอร์เซ็นต์
                 new_pct = (new_patients / total_patients * 100) if total_patients > 0 else 0
                 red_pct = (red_cases / total_patients * 100) if total_patients > 0 else 0
                 
@@ -165,7 +164,6 @@ if df is not None:
                 dash_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย ({new_pct:.1f}%)")
                 dash_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย ({red_pct:.1f}%)")
                 
-                # วาดกราฟวงกลมเพศลงใน Column สุดท้ายบนหน้าเว็บ
                 with dash_col4:
                     st.markdown("<p style='font-size:14px; font-weight:600; color:#475569; margin-bottom:-10px;'>🚻 สัดส่วนเพศ</p>", unsafe_allow_html=True)
                     if male_count + female_count > 0:
@@ -206,7 +204,7 @@ if df is not None:
                 tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF (คงไว้เหมือนเดิม ไม่แตะต้อง)
+                # TAB 1: ระบบรายงาน PDF
                 # ------------------------------------------
                 with tab_pdf:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -471,8 +469,10 @@ if df is not None:
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
                             type="primary"
                         )
+                    else:
+                        st.warning("⚠️ กรุณาเลือกอย่างน้อย 1 คอลัมน์เพื่อส่งออก")
 
-        else:
-             st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
+            else:
+                st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
     else:
-         st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
+        st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
