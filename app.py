@@ -186,7 +186,7 @@ if df is not None:
                             labels.append('Female')
                             colors.append('#ec4899')
                             
-                        # วาดกราฟวงกลมพร้อมบังคับใช้ฟอนต์ภาษาไทยผ่าน textprops
+                        # วาดกราฟวงกลมบนเว็บ
                         wedges, texts, autotexts = ax_dash.pie(
                             sizes, labels=labels, 
                             autopct=lambda p: f"{int(round(p * sum(sizes) / 100))}\n({p:.1f}%)",
@@ -278,18 +278,39 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                            # กราฟ Dx (PDF)
+                            # ==================================
+                            # กราฟ Dx (PDF) - สร้างเส้นชี้ (Callout Lines)
+                            # ==================================
                             dx_counts = filtered_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                             if valid_dx:
                                 fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
-                                wedges1, texts1, autotexts1 = ax1.pie(
-                                    valid_dx.values(), labels=list(valid_dx.keys()), 
-                                    autopct=lambda p: f"{int(round(p * sum(valid_dx.values()) / 100))} ({p:.1f}%)",
-                                    startangle=90, colors=plt.cm.tab20.colors,
-                                    textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
-                                )
+                                total_dx = sum(valid_dx.values())
+                                labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
+                                
+                                # ปิดการใช้ labels มาตรฐานและ autopct เพราะเราจะวาดเส้นเอง
+                                wedges1, texts1 = ax1.pie(valid_dx.values(), startangle=90, colors=plt.cm.tab20.colors, radius=0.55)
+                                
+                                kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
+                                for i, p in enumerate(wedges1):
+                                    ang = (p.theta2 - p.theta1)/2. + p.theta1
+                                    
+                                    # ป้องกัน ValueError: Given lines do not intersect 
+                                    safe_ang = ang
+                                    if abs(safe_ang % 180) < 1:  
+                                        safe_ang += 1.0          
+                                        
+                                    y = np.sin(np.deg2rad(ang))
+                                    x = np.cos(np.deg2rad(ang))
+                                    x_sign = -1 if x < 0 else 1
+                                    horizontalalignment = "right" if x_sign == -1 else "left"
+                                    
+                                    kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={safe_ang}"})
+                                    ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.75*x_sign, 0.8*y),
+                                                 horizontalalignment=horizontalalignment, fontsize=8, color='#111827', 
+                                                 fontfamily=THAI_FONT_NAME, **kw)
+                                                 
                                 ax1.axis('equal') 
                                 img_buf1 = io.BytesIO()
                                 plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
@@ -299,7 +320,9 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี (PDF) - ซ่อนข้อความนอกวงกลม (แก้ไขเพิ่มตัวแปร texts2)
+                            # ==================================
+                            # กราฟระดับสี (PDF) - ไม่มีเส้นชี้
+                            # ==================================
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -320,7 +343,6 @@ if df is not None:
                                 fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
                                 colors2 = [color_map[k] for k in active_levels.keys()]
                                 
-                                # ลบ labels ออก และรับค่าตัวแปรให้ครบ 3 ตัวเพื่อป้องกัน ValueError
                                 wedges2, texts2, autotexts2 = ax2.pie(
                                     active_levels.values(), 
                                     autopct=lambda p: f"{int(round(p * sum(active_levels.values()) / 100))} ({p:.1f}%)",
@@ -431,7 +453,12 @@ if df is not None:
                             
                             file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
                             st.success(f"สร้าง PDF สำเร็จ! (ข้อมูล {len(filtered_df)} รายการ)")
-                            st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Report_{file_name_date}.pdf", mime="application/pdf")
+                            st.download_button(
+                                label="📥 ดาวน์โหลดไฟล์ PDF", 
+                                data=pdf_bytes, 
+                                file_name=f"Telepsychiatry_report_{file_name_date}.pdf", 
+                                mime="application/pdf"
+                            )
                             
                 # ------------------------------------------
                 # TAB 2: EXCEL Report
@@ -483,7 +510,7 @@ if df is not None:
                         st.download_button(
                             label="📥 ดาวน์โหลดไฟล์ Excel (พร้อมรูปภาพ)", 
                             data=excel_bytes, 
-                            file_name=f"Data_{file_name_date}.xlsx", 
+                            file_name=f"Psychiatry_report_{file_name_date}.xlsx", 
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
                             type="primary"
                         )
