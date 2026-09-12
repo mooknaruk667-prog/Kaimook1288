@@ -90,7 +90,6 @@ if df is not None:
             total_patients = len(filtered_df)
             new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
             
-            # ป้องกัน Error โดยแปลงคอลัมน์ "หน้า" เป็น string (ข้อความ) เสมอ
             if 'หน้า' in filtered_df.columns:
                 red_cases = sum(filtered_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
             else:
@@ -180,7 +179,7 @@ if df is not None:
                         new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                         new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                        # กราฟ Dx (รูปแบบพื้นฐาน เสถียร ไม่ทับซ้อน)
+                        # กราฟ Dx
                         dx_counts = filtered_df['Dx'].value_counts()
                         chart_img_tag = ""
                         valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -197,13 +196,13 @@ if df is not None:
                         else:
                             chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                        # กราฟระดับสี (ป้องกัน TypeError แบบเด็ดขาดด้วย str())
+                        # กราฟระดับสี
                         color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                         level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                         
                         if 'หน้า' in filtered_df.columns:
                             for face_url in filtered_df['หน้า']:
-                                face_url = str(face_url) # แปลงค่าให้เป็น String อย่างปลอดภัย
+                                face_url = str(face_url)
                                 if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: level_counts['แดง'] += 1
                                 elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: level_counts['ส้ม'] += 1
                                 elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url: level_counts['เหลือง'] += 1
@@ -228,7 +227,6 @@ if df is not None:
                         else:
                             level_chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล</p>"
 
-                        # หัวรายงานเรียบง่าย
                         logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
                         title_text = f"รายงานข้อมูลจิตเวช วันที่ {selected_date}" if selected_date != "ทั้งหมด" else "รายงานข้อมูลจิตเวช"
 
@@ -253,6 +251,8 @@ if df is not None:
                         <html lang="th">
                         <head>
                         <meta charset="UTF-8">
+                        <!-- 🔥 เพิ่ม Link ฟอนต์ Sarabun จาก Google Fonts กลับเข้าไปตรงนี้ 🔥 -->
+                        <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                         <style>
                             @page {{ size: A4 portrait; margin: 10mm 10mm 15mm 10mm; }}
                             body {{ font-family: 'Sarabun', sans-serif; font-size: 11pt; color: #334155; line-height: 1.5; }}
