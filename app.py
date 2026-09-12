@@ -116,7 +116,7 @@ if df is not None:
         unique_statuses = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['สถานะ'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         
         # ==========================================
-        # 🎛️ ตัวกรองข้อมูล (เปลี่ยนเป็นแบบ Multiselect)
+        # 🎛️ ตัวกรองข้อมูล (Multiselect)
         # ==========================================
         col_filter1, col_filter2, col_filter3 = st.columns(3)
         with col_filter1:
@@ -141,7 +141,7 @@ if df is not None:
                 st.markdown("---")
                 
                 # ==========================================
-                # 📊 Dashboard สรุปข้อมูลบนเว็บ
+                # 📊 Dashboard สรุปข้อมูลบนเว็บ (ปรับปรุงใหม่ แสดง % และกราฟวงกลม)
                 # ==========================================
                 total_patients = len(filtered_df)
                 new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
@@ -155,12 +155,49 @@ if df is not None:
                 male_count = len(filtered_df[filtered_df['เพศ'] == 'ชาย'])
                 female_count = len(filtered_df[filtered_df['เพศ'] == 'หญิง'])
                 
-                dash_col1, dash_col2, dash_col3, dash_col4, dash_col5 = st.columns(5)
+                # คำนวณเปอร์เซ็นต์
+                new_pct = (new_patients / total_patients * 100) if total_patients > 0 else 0
+                red_pct = (red_cases / total_patients * 100) if total_patients > 0 else 0
+                
+                dash_col1, dash_col2, dash_col3, dash_col4 = st.columns([1, 1.2, 1.2, 1.5])
+                
                 dash_col1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_patients} ราย")
-                dash_col2.metric("👨 ผู้ป่วยชาย", f"{male_count} ราย")
-                dash_col3.metric("👩 ผู้ป่วยหญิง", f"{female_count} ราย")
-                dash_col4.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย")
-                dash_col5.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย")
+                dash_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย ({new_pct:.1f}%)")
+                dash_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย ({red_pct:.1f}%)")
+                
+                # วาดกราฟวงกลมเพศลงใน Column สุดท้ายบนหน้าเว็บ
+                with dash_col4:
+                    st.markdown("<p style='font-size:14px; font-weight:600; color:#475569; margin-bottom:-10px;'>🚻 สัดส่วนเพศ</p>", unsafe_allow_html=True)
+                    if male_count + female_count > 0:
+                        fig_dash, ax_dash = plt.subplots(figsize=(2.5, 1.5))
+                        fig_dash.patch.set_alpha(0.0) 
+                        
+                        sizes = []
+                        labels = []
+                        colors = []
+                        if male_count > 0:
+                            sizes.append(male_count)
+                            labels.append('ชาย')
+                            colors.append('#3b82f6')
+                        if female_count > 0:
+                            sizes.append(female_count)
+                            labels.append('หญิง')
+                            colors.append('#ec4899')
+                            
+                        wedges, texts, autotexts = ax_dash.pie(
+                            sizes, labels=labels, autopct='%1.1f%%',
+                            colors=colors, startangle=90, textprops={'fontsize': 8}
+                        )
+                        for autotext in autotexts:
+                            autotext.set_color('white')
+                            autotext.set_fontsize(8)
+                        ax_dash.axis('equal')
+                        
+                        st.pyplot(fig_dash)
+                        plt.close(fig_dash)
+                    else:
+                        st.info("ไม่มีข้อมูลเพศ")
+                        
                 st.markdown("---")
 
                 # ==========================================
@@ -169,7 +206,7 @@ if df is not None:
                 tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF
+                # TAB 1: ระบบรายงาน PDF (คงไว้เหมือนเดิม ไม่แตะต้อง)
                 # ------------------------------------------
                 with tab_pdf:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -235,7 +272,7 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                            # กราฟ Dx (รูปแบบพื้นฐาน เสถียร ไม่ทับซ้อน)
+                            # กราฟ Dx
                             dx_counts = filtered_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -285,7 +322,6 @@ if df is not None:
 
                             logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
                             
-                            # จัดการหัวข้อรายงาน PDF
                             if "ทั้งหมด" in selected_dates:
                                 title_text = "รายงานข้อมูลจิตเวช"
                             else:
@@ -377,7 +413,6 @@ if df is not None:
                             """
                             pdf_bytes = HTML(string=html_content).write_pdf()
                             
-                            # จัดการชื่อไฟล์ PDF
                             file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
                             st.success(f"สร้าง PDF สำเร็จ! (ข้อมูล {len(filtered_df)} รายการ)")
                             st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Report_{file_name_date}.pdf", mime="application/pdf")
@@ -437,7 +472,7 @@ if df is not None:
                             type="primary"
                         )
 
-            else:
-                 st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
+        else:
+             st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
     else:
          st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
