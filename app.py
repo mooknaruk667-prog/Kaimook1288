@@ -91,7 +91,7 @@ def generate_excel_with_images(export_df, export_cols):
 # ==========================================
 st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="🌿", layout="wide")
 
-# 🔥 แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI / SaaS Dashboard
+# แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI
 st.markdown("""
 <style>
     .stApp { background-color: #F8FAFC; }
@@ -159,7 +159,6 @@ with col_title:
     st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
 with col_btn:
     st.write("") 
-    # ปุ่มเปิดไฟล์ต้นฉบับ
     st.link_button("📝 เปิดแก้ไขข้อมูลถาวรบน Google Sheet", SHEET_URL.replace("/export?format=csv", "/edit"), type="secondary", use_container_width=True)
 
 @st.cache_data(ttl=60)
@@ -279,35 +278,54 @@ if df is not None:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                     suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
                     
-                    st.markdown("**📋 Preview ข้อมูล (สามารถดับเบิลคลิกแก้ไขข้อความในตารางชั่วคราวก่อนออก PDF ได้เลย):**")
+                    st.markdown("**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
                     
-                    # 🔥 กำหนดคอลัมน์ที่จะโชว์ให้เหมือนเดิมเป๊ะๆ
-                    preview_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์']
+                    # ลำดับคอลัมน์ Preview: ตัดเพศออก เพิ่มหน้า และ นัด
+                    preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'แพทย์']
                     avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
-                    def highlight_red_preview(subset_df):
-                        styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
-                        if 'หน้า' in subset_df.columns:
-                            red_mask = subset_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
-                            for col in styles.columns:
-                                styles.loc[red_mask, col] = 'background-color: #FCE4EC;' 
-                        return styles
+                    # คัดลอก DataFrame สำหรับแสดงผลภาพในหน้าเว็บ
+                    pdf_display_df = filtered_df[avail_cols].copy()
+                    
+                    def get_direct_url_preview(url):
+                        url_str = str(url).strip()
+                        match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', url_str)
+                        match2 = re.search(r'id=([a-zA-Z0-9_-]+)', url_str)
+                        gdrive_id = None
+                        if match1: gdrive_id = match1.group(1)
+                        elif match2: gdrive_id = match2.group(1)
+                        
+                        if gdrive_id:
+                            return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
+                        return None
+                    
+                    if 'หน้า' in pdf_display_df.columns:
+                        pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(get_direct_url_preview)
 
-                    # 🔥 ใช้ data_editor พร้อมกำหนด column_order ให้โชว์แค่ avail_cols
-                    edited_df = st.data_editor(
-                        filtered_df.style.apply(highlight_red_preview, axis=None),
+                    # 🔥 ใช้ data_editor พร้อมเปลี่ยน 'หน้า' ให้แสดงเป็นภาพ ImageColumn
+                    edited_pdf_display = st.data_editor(
+                        pdf_display_df,
                         use_container_width=True, 
                         hide_index=True,
                         num_rows="dynamic",
-                        column_order=avail_cols, # บังคับให้หน้าตาคอลัมน์เหมือนเดิม 100%
-                        key="pdf_editor"
+                        column_order=avail_cols, 
+                        key="pdf_editor_with_images",
+                        column_config={
+                            "หน้า": st.column_config.ImageColumn("ระดับ", help="ภาพระดับสีจาก Google Drive"),
+                            "นัด": st.column_config.TextColumn("นัดครั้งถัดไป")
+                        }
                     )
+                    
+                    # รวมค่าที่แก้ไขกลับไปยัง filtered_df เพื่อนำไปสร้าง PDF ได้อย่างแม่นยำ
+                    edited_df = filtered_df.copy()
+                    for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'แพทย์']:
+                        if col in edited_pdf_display.columns and col in edited_df.columns:
+                            edited_df[col] = edited_pdf_display[col]
                     
                     if st.button("🚀 สร้างรายงาน PDF", type="primary"):
                         with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
                             
                             html_rows = ""
-                            # ดึงข้อมูลจาก edited_df (ตารางที่ถูกแก้ข้อความแล้ว) ไปสร้าง PDF
                             for row_num, (idx, row) in enumerate(edited_df.iterrows(), start=1):
                                 name = str(row.get('ชื่อ-สกุล', '')).replace('nan', '')
                                 status = str(row.get('สถานะ', '')).replace('nan', '')
@@ -560,7 +578,6 @@ if df is not None:
                                 key="excel_editor"
                             )
                         
-                        # ดึงข้อมูลจาก edited_excel_df ไปแปลงเป็น Excel
                         excel_bytes = generate_excel_with_images(edited_excel_df, selected_export_cols)
                         
                         file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
