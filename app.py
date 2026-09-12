@@ -202,7 +202,7 @@ if df is not None:
                 filtered_df = filtered_df[filtered_df['สถานะ'].astype(str).str.strip().isin(selected_statuses)]
 
             if len(filtered_df) > 0:
-                # 🔥 เพิ่มการจัดเรียงข้อมูลตามกลุ่ม "นัด" เพื่อให้วันเดียวกันมาอยู่ติดกัน
+                # 🔥 จัดเรียงข้อมูลตามกลุ่ม "นัด" เพื่อให้วันเดียวกันมาอยู่ติดกัน
                 if 'นัด' in filtered_df.columns:
                     filtered_df['นัด'] = filtered_df['นัด'].fillna('')
                     filtered_df = filtered_df.sort_values(by='นัด').reset_index(drop=True)
@@ -272,23 +272,19 @@ if df is not None:
                 st.markdown("---")
 
                 # ==========================================
-                # 🔥 ระบบจับคู่ภาพสำหรับแสดงข้อความ Dropdown
+                # 🔥 ฟังก์ชันแปลง URL เป็น Thumbnail สำหรับตาราง
                 # ==========================================
-                url_mapping = {
-                    "แดง": "https://drive.google.com/uc?id=15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw",
-                    "ส้ม": "https://drive.google.com/uc?id=1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P",
-                    "เหลือง": "https://drive.google.com/uc?id=1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y",
-                    "เขียว": "https://drive.google.com/uc?id=1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B",
-                    "ไม่มีข้อมูล": ""
-                }
-                
-                def url_to_label(url):
-                    url_str = str(url)
-                    if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in url_str: return "แดง"
-                    if "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in url_str: return "ส้ม"
-                    if "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in url_str: return "เหลือง"
-                    if "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in url_str: return "เขียว"
-                    return "ไม่มีข้อมูล"
+                def get_direct_url_preview(url):
+                    url_str = str(url).strip()
+                    match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', url_str)
+                    match2 = re.search(r'id=([a-zA-Z0-9_-]+)', url_str)
+                    gdrive_id = None
+                    if match1: gdrive_id = match1.group(1)
+                    elif match2: gdrive_id = match2.group(1)
+                    
+                    if gdrive_id:
+                        return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
+                    return None
 
                 # ==========================================
                 # 🔥 ระบบทำพื้นหลังสีกลุ่มและเคสวิกฤตบนเว็บ
@@ -296,10 +292,9 @@ if df is not None:
                 def highlight_and_group(subset_df):
                     styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
                     
-                    # 1. ทำสีพื้นหลังสลับตามกลุ่มวันนัดให้อยู่ใกล้กัน (เฉพาะคอลัมน์ 'นัด')
                     if 'นัด' in subset_df.columns:
                         valid_dates = [d for d in subset_df['นัด'].unique() if str(d).strip() != '' and str(d).lower() != 'nan']
-                        pastel_colors = ['#E0F2F1', '#FFF9C4', '#F3E5F5', '#E3F2FD', '#FBE9E7'] # โทนสีพาสเทลแยกกลุ่ม
+                        pastel_colors = ['#E0F2F1', '#FFF9C4', '#F3E5F5', '#E3F2FD', '#FBE9E7']
                         color_map = {date: pastel_colors[i % len(pastel_colors)] for i, date in enumerate(valid_dates)}
                         
                         for idx, row in subset_df.iterrows():
@@ -307,14 +302,10 @@ if df is not None:
                             if appt_date in color_map:
                                 styles.loc[idx, 'นัด'] = f'background-color: {color_map[appt_date]}; font-weight: 600;'
                                 
-                    # 2. ไฮไลต์เคสแดง (ทับสีอื่นๆ เป็นสีชมพู)
                     if 'หน้า' in subset_df.columns:
                         red_mask = subset_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
-                        red_text_mask = subset_df['หน้า'].fillna("").astype(str) == "แดง"
-                        combined_mask = red_mask | red_text_mask
-                        
                         for col in styles.columns:
-                            styles.loc[combined_mask, col] = 'background-color: #FCE4EC;' 
+                            styles.loc[red_mask, col] = 'background-color: #FCE4EC;' 
                             
                     return styles
 
@@ -335,38 +326,27 @@ if df is not None:
                     preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'แพทย์']
                     avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
-                    # แปลงคอลัมน์หน้าเป็นข้อความให้เลือกใน Dropdown
                     pdf_display_df = filtered_df[avail_cols].copy()
                     if 'หน้า' in pdf_display_df.columns:
-                        pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(url_to_label)
+                        pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(get_direct_url_preview)
 
-                    # สร้างตารางให้พิมพ์แก้ข้อมูล
                     edited_pdf_display = st.data_editor(
                         pdf_display_df.style.apply(highlight_and_group, axis=None),
                         use_container_width=True, 
                         hide_index=True,
                         num_rows="dynamic",
                         column_order=avail_cols, 
-                        key="pdf_editor_with_dropdown",
+                        key="pdf_editor_with_images",
                         column_config={
-                            "หน้า": st.column_config.SelectboxColumn(
-                                "ระดับสี", 
-                                help="คลิกเพื่อเลือกระดับสี",
-                                options=["แดง", "ส้ม", "เหลือง", "เขียว", "ไม่มีข้อมูล"],
-                                required=True
-                            ),
+                            "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
                             "นัด": st.column_config.TextColumn("นัดครั้งถัดไป")
                         }
                     )
                     
-                    # แปลงข้อมูลกลับไปเพื่อวาด PDF (แปลงข้อความกลับเป็น URL รูป)
                     edited_df = filtered_df.copy()
-                    for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'แพทย์']:
+                    for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'แพทย์', 'หน้า']:
                         if col in edited_pdf_display.columns and col in edited_df.columns:
                             edited_df[col] = edited_pdf_display[col]
-                            
-                    if 'หน้า' in edited_pdf_display.columns:
-                        edited_df['หน้า'] = edited_pdf_display['หน้า'].apply(lambda x: url_mapping.get(x, ""))
                     
                     if st.button("🚀 สร้างรายงาน PDF", type="primary"):
                         with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
@@ -606,7 +586,7 @@ if df is not None:
                         preview_excel_df = excel_df.copy()
                         
                         if 'หน้า' in preview_excel_df.columns:
-                            preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(url_to_label)
+                            preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url_preview)
                             
                             st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัด / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
                             edited_excel_df = st.data_editor(
@@ -614,14 +594,9 @@ if df is not None:
                                 use_container_width=True, 
                                 hide_index=True,
                                 num_rows="dynamic",
-                                key="excel_editor_with_dropdown",
+                                key="excel_editor_with_image",
                                 column_config={
-                                    "หน้า": st.column_config.SelectboxColumn(
-                                        "ระดับสี", 
-                                        help="คลิกเพื่อเลือกระดับสี",
-                                        options=["แดง", "ส้ม", "เหลือง", "เขียว", "ไม่มีข้อมูล"],
-                                        required=True
-                                    )
+                                    "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)")
                                 }
                             )
                         else:
@@ -633,10 +608,6 @@ if df is not None:
                                 num_rows="dynamic",
                                 key="excel_editor_no_image"
                             )
-                        
-                        # แปลงข้อความกลับเป็น URL สำหรับฝังรูปใน Excel
-                        if 'หน้า' in edited_excel_df.columns:
-                            edited_excel_df['หน้า'] = edited_excel_df['หน้า'].apply(lambda x: url_mapping.get(x, ""))
                             
                         excel_bytes = generate_excel_with_images(edited_excel_df, selected_export_cols)
                         
