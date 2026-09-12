@@ -29,7 +29,7 @@ def setup_thai_font():
 setup_thai_font()
 plt.switch_backend('Agg')
 
-# 🔥 บังคับโหลดฟอนต์ภาษาไทยจากไฟล์โดยตรง เพื่อแก้ปัญหาสี่เหลี่ยมชัวร์ 100%
+# 🔥 บังคับโหลดฟอนต์ภาษาไทยจากไฟล์โดยตรง
 if os.path.exists("Sarabun-Regular.ttf"):
     THAI_FONT = fm.FontProperties(fname="Sarabun-Regular.ttf", size=8)
 else:
@@ -170,7 +170,7 @@ if df is not None:
                 dash_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย ({red_pct:.1f}%)")
                 
                 with dash_col4:
-                    st.markdown("<p style='font-size:14px; font-weight:600; color:#475569; margin-bottom:-10px;'>🚻 สัดส่วนเพศ</p>", unsafe_allow_html=True)
+                    st.markdown("<p style='font-size:14px; font-weight:600; color:#475569; margin-bottom:-10px;'>🚻 สัดส่วนเพศ (Gender)</p>", unsafe_allow_html=True)
                     if male_count + female_count > 0:
                         fig_dash, ax_dash = plt.subplots(figsize=(2.5, 1.5))
                         fig_dash.patch.set_alpha(0.0) 
@@ -178,28 +178,27 @@ if df is not None:
                         sizes = []
                         labels = []
                         colors = []
+                        
+                        # ใช้ภาษาอังกฤษ "Male" / "Female" เพื่อแก้ปัญหาสี่เหลี่ยมชัวร์ๆ
                         if male_count > 0:
                             sizes.append(male_count)
-                            labels.append('ชาย')
+                            labels.append('Male')
                             colors.append('#3b82f6')
                         if female_count > 0:
                             sizes.append(female_count)
-                            labels.append('หญิง')
+                            labels.append('Female')
                             colors.append('#ec4899')
                             
-                        # วาดกราฟวงกลมพร้อมใส่ตัวเลข และเปอร์เซ็นต์
+                        # เอาคำว่า "คน" ออก เพื่อไม่ให้มีปัญหาภาษาไทย
                         wedges, texts, autotexts = ax_dash.pie(
                             sizes, labels=labels, 
-                            autopct=lambda p: f"{int(round(p * sum(sizes) / 100))} คน\n({p:.1f}%)",
-                            colors=colors, startangle=90
+                            autopct=lambda p: f"{int(round(p * sum(sizes) / 100))}\n({p:.1f}%)",
+                            colors=colors, startangle=90,
+                            textprops={'fontsize': 8} # ใช้ฟอนต์ปกติได้เลยเพราะเป็นภาษาอังกฤษล้วน
                         )
                         
-                        # บังคับใช้ฟอนต์ภาษาไทยให้แก้ปัญหาสี่เหลี่ยมชัวร์ๆ
-                        for t in texts:
-                            t.set_fontproperties(THAI_FONT)
-                        for t in autotexts:
-                            t.set_fontproperties(THAI_FONT)
-                            t.set_color('white')
+                        for autotext in autotexts:
+                            autotext.set_color('white')
                             
                         ax_dash.axis('equal')
                         
@@ -293,7 +292,6 @@ if df is not None:
                                     autopct=lambda p: f"{int(round(p * sum(valid_dx.values()) / 100))} ({p:.1f}%)",
                                     startangle=90, colors=plt.cm.tab20.colors
                                 )
-                                # บังคับฟอนต์
                                 for t in texts1 + autotexts1:
                                     t.set_fontproperties(THAI_FONT)
                                     
@@ -331,7 +329,6 @@ if df is not None:
                                     autopct=lambda p: f"{int(round(p * sum(active_levels.values()) / 100))} ({p:.1f}%)",
                                     startangle=90, colors=colors2
                                 )
-                                # บังคับฟอนต์
                                 for t in texts2 + autotexts2:
                                     t.set_fontproperties(THAI_FONT)
                                     
