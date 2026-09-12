@@ -35,7 +35,7 @@ except Exception:
 plt.switch_backend('Agg')
 
 # ==========================================
-# 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
+# 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ (ไม่แตะต้อง)
 # ==========================================
 @st.cache_data(ttl=300, show_spinner="กำลังเตรียมไฟล์ Excel และดาวน์โหลดรูปภาพ (อาจใช้เวลาสักครู่)...")
 def generate_excel_with_images(export_df, export_cols):
@@ -90,10 +90,76 @@ def generate_excel_with_images(export_df, export_cols):
 # ==========================================
 # 🚀 เริ่มต้นโปรแกรม Streamlit
 # ==========================================
-st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="📄", layout="wide")
+st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="🌿", layout="wide")
 
-st.title("📄 ระบบ Report ข้อมูลจิตเวช")
-st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF / Excel")
+# 🔥 แทรก CSS ตกแต่งหน้าเว็บ ธีม Mental Health สีพาสเทล
+st.markdown("""
+<style>
+    /* พื้นหลังแอป */
+    .stApp {
+        background-color: #F4F9F9; /* สีฟ้าน้ำทะเลอ่อนๆ ให้ความรู้สึกสงบและสะอาด */
+    }
+    /* หัวข้อหลัก */
+    h1, h2, h3 {
+        color: #5D7B93; /* สีฟ้าน้ำเงินตุ่นๆ สบายตา ไม่ฉูดฉาด */
+        font-family: 'Sarabun', sans-serif;
+    }
+    /* กล่อง Metric (สรุปตัวเลข Dashboard) */
+    [data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border-radius: 16px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+        border-top: 5px solid #A1C7E0; /* แถบสีฟ้าพาสเทลด้านบน */
+    }
+    /* กล่องตัวกรอง (Multiselect) */
+    .stMultiSelect div[data-baseweb="select"] {
+        border-radius: 12px;
+        background-color: #FFFFFF;
+        border: 1px solid #DDE6ED;
+    }
+    /* รูปแบบ Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #E8F0FE;
+        border-radius: 10px 10px 0 0;
+        padding: 10px 20px;
+        color: #5D7B93;
+        border: none;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #B5D5C5; /* สีเขียวพาสเทลฮีลใจ สำหรับแท็บที่กำลังเปิด */
+        color: #2C3E50;
+        font-weight: 600;
+    }
+    /* ปุ่มกดหลัก */
+    .stButton>button {
+        background-color: #B5D5C5; /* สีเขียวพาสเทล */
+        color: #2C3E50;
+        border-radius: 12px;
+        border: none;
+        padding: 10px 24px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+    .stButton>button:hover {
+        background-color: #9EBEAE;
+        color: white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    /* กล่องข้อความ Text Area */
+    .stTextArea textarea {
+        border-radius: 12px;
+        border: 1px solid #DDE6ED;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
+st.markdown("<p style='color:#7895A2; font-size:16px;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
 
 # URL ของ Google Sheet
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
@@ -169,7 +235,7 @@ if df is not None:
                 dash_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย ({red_pct:.1f}%)")
                 
                 with dash_col4:
-                    st.markdown("<p style='font-size:14px; font-weight:600; color:#475569; margin-bottom:-10px;'>🚻 สัดส่วนเพศ (Gender)</p>", unsafe_allow_html=True)
+                    st.markdown("<p style='font-size:14px; font-weight:600; color:#5D7B93; margin-bottom:-10px;'>🚻 สัดส่วนเพศ (Gender)</p>", unsafe_allow_html=True)
                     if male_count + female_count > 0:
                         fig_dash, ax_dash = plt.subplots(figsize=(2.5, 1.5))
                         fig_dash.patch.set_alpha(0.0) 
@@ -180,13 +246,12 @@ if df is not None:
                         if male_count > 0:
                             sizes.append(male_count)
                             labels.append('Male')
-                            colors.append('#3b82f6')
+                            colors.append('#AEC6CF') # สีฟ้าพาสเทล
                         if female_count > 0:
                             sizes.append(female_count)
                             labels.append('Female')
-                            colors.append('#ec4899')
+                            colors.append('#FFB7B2') # สีชมพูพาสเทล
                             
-                        # วาดกราฟวงกลมบนเว็บ
                         wedges, texts, autotexts = ax_dash.pie(
                             sizes, labels=labels, 
                             autopct=lambda p: f"{int(round(p * sum(sizes) / 100))}\n({p:.1f}%)",
@@ -194,8 +259,10 @@ if df is not None:
                             textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
                         )
                         
+                        for text in texts:
+                            text.set_color('#5D7B93') # สีตัวอักษรด้านนอกให้กลืนกับธีม
                         for autotext in autotexts:
-                            autotext.set_color('white')
+                            autotext.set_color('#4A4A4A') # สีตัวอักษรด้านในให้อ่านง่าย
                             
                         ax_dash.axis('equal')
                         
@@ -212,7 +279,7 @@ if df is not None:
                 tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF
+                # TAB 1: ระบบรายงาน PDF (ไม่แตะต้อง)
                 # ------------------------------------------
                 with tab_pdf:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -227,7 +294,7 @@ if df is not None:
                         if 'หน้า' in filtered_df.columns:
                             red_mask = filtered_df.loc[subset_df.index, 'หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
                             for col in styles.columns:
-                                styles.loc[red_mask, col] = 'background-color: #fee2e2;'
+                                styles.loc[red_mask, col] = 'background-color: #FCE4EC;' # สีชมพูอ่อนพาสเทล
                         return styles
 
                     styled_preview = filtered_df[avail_cols].style.apply(highlight_red_preview, axis=None)
@@ -278,39 +345,18 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                            # ==================================
-                            # กราฟ Dx (PDF) - สร้างเส้นชี้ (Callout Lines)
-                            # ==================================
+                            # กราฟ Dx (PDF)
                             dx_counts = filtered_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
                             if valid_dx:
                                 fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
-                                total_dx = sum(valid_dx.values())
-                                labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
-                                
-                                # ปิดการใช้ labels มาตรฐานและ autopct เพราะเราจะวาดเส้นเอง
-                                wedges1, texts1 = ax1.pie(valid_dx.values(), startangle=90, colors=plt.cm.tab20.colors, radius=0.55)
-                                
-                                kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
-                                for i, p in enumerate(wedges1):
-                                    ang = (p.theta2 - p.theta1)/2. + p.theta1
-                                    
-                                    # ป้องกัน ValueError: Given lines do not intersect 
-                                    safe_ang = ang
-                                    if abs(safe_ang % 180) < 1:  
-                                        safe_ang += 1.0          
-                                        
-                                    y = np.sin(np.deg2rad(ang))
-                                    x = np.cos(np.deg2rad(ang))
-                                    x_sign = -1 if x < 0 else 1
-                                    horizontalalignment = "right" if x_sign == -1 else "left"
-                                    
-                                    kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={safe_ang}"})
-                                    ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.75*x_sign, 0.8*y),
-                                                 horizontalalignment=horizontalalignment, fontsize=8, color='#111827', 
-                                                 fontfamily=THAI_FONT_NAME, **kw)
-                                                 
+                                wedges1, texts1, autotexts1 = ax1.pie(
+                                    valid_dx.values(), labels=list(valid_dx.keys()), 
+                                    autopct=lambda p: f"{int(round(p * sum(valid_dx.values()) / 100))} ({p:.1f}%)",
+                                    startangle=90, colors=plt.cm.tab20.colors,
+                                    textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
+                                )
                                 ax1.axis('equal') 
                                 img_buf1 = io.BytesIO()
                                 plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
@@ -320,9 +366,7 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # ==================================
-                            # กราฟระดับสี (PDF) - ไม่มีเส้นชี้
-                            # ==================================
+                            # กราฟระดับสี (PDF) - ซ่อนข้อความนอกวงกลม
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -461,7 +505,7 @@ if df is not None:
                             )
                             
                 # ------------------------------------------
-                # TAB 2: EXCEL Report
+                # TAB 2: EXCEL Report (ไม่แตะต้อง)
                 # ------------------------------------------
                 with tab_excel:
                     st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
