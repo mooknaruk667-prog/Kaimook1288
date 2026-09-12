@@ -273,13 +273,17 @@ if df is not None:
                 tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF (เปิดให้แก้ไขข้อมูลในตารางได้)
+                # TAB 1: ระบบรายงาน PDF
                 # ------------------------------------------
                 with tab_pdf:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                     suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
                     
                     st.markdown("**📋 Preview ข้อมูล (สามารถดับเบิลคลิกแก้ไขข้อความในตารางชั่วคราวก่อนออก PDF ได้เลย):**")
+                    
+                    # 🔥 กำหนดคอลัมน์ที่จะโชว์ให้เหมือนเดิมเป๊ะๆ
+                    preview_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'แพทย์']
+                    avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
                     def highlight_red_preview(subset_df):
                         styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
@@ -289,12 +293,13 @@ if df is not None:
                                 styles.loc[red_mask, col] = 'background-color: #FCE4EC;' 
                         return styles
 
-                    # 🔥 ใช้ st.data_editor เพื่อให้ตารางพิมพ์แก้ข้อมูลได้
+                    # 🔥 ใช้ data_editor พร้อมกำหนด column_order ให้โชว์แค่ avail_cols
                     edited_df = st.data_editor(
                         filtered_df.style.apply(highlight_red_preview, axis=None),
                         use_container_width=True, 
                         hide_index=True,
                         num_rows="dynamic",
+                        column_order=avail_cols, # บังคับให้หน้าตาคอลัมน์เหมือนเดิม 100%
                         key="pdf_editor"
                     )
                     
@@ -504,7 +509,7 @@ if df is not None:
                             )
                             
                 # ------------------------------------------
-                # TAB 2: EXCEL Report (เปิดให้แก้ไขข้อมูลในตารางได้)
+                # TAB 2: EXCEL Report
                 # ------------------------------------------
                 with tab_excel:
                     st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
@@ -531,7 +536,6 @@ if df is not None:
                                 return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
                             return None
                         
-                        # 🔥 ใช้ st.data_editor เพื่อให้ตารางพิมพ์แก้ข้อมูลชั่วคราวก่อนดาวน์โหลดได้
                         if 'หน้า' in preview_excel_df.columns:
                             preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url)
                             
