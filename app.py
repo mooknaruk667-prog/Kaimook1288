@@ -168,7 +168,7 @@ if df is not None:
             tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
             
             # ------------------------------------------
-            # TAB 1: ระบบรายงาน PDF (คงไว้เหมือนเดิม ไม่แตะต้อง)
+            # TAB 1: ระบบรายงาน PDF
             # ------------------------------------------
             with tab_pdf:
                 problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -373,13 +373,12 @@ if df is not None:
                         st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Report_{file_name_date}.pdf", mime="application/pdf")
                         
             # ------------------------------------------
-            # TAB 2: EXCEL Report (ปรับแก้ให้แสดงรูปภาพในตาราง Preview)
+            # TAB 2: EXCEL Report (ปรับแก้ให้แสดงรูปภาพ)
             # ------------------------------------------
             with tab_excel:
                 st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
                 all_columns = filtered_df.columns.tolist()
                 
-                # นำ "หน้า" มาตั้งเป็นค่าเริ่มต้นที่ถูกติ๊กไว้เลย
                 default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'แพทย์', 'นัด'] if c in all_columns]
                     
                 selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_columns, default=default_cols if default_cols else all_columns)
@@ -387,7 +386,6 @@ if df is not None:
                 if selected_export_cols:
                     excel_df = filtered_df[selected_export_cols]
                     
-                    # --- ส่วนปรับแก้: แปลง URL ยาวๆ เป็นรูปลงตาราง Preview ของ Streamlit ---
                     preview_excel_df = excel_df.copy()
                     
                     def get_direct_url(url):
@@ -399,26 +397,26 @@ if df is not None:
                         elif match2: gdrive_id = match2.group(1)
                         
                         if gdrive_id:
-                            return f"https://drive.google.com/uc?id={gdrive_id}"
-                        return ""
+                            # ใช้ endpoint thumbnail สำหรับการแสดงบนหน้าเว็บอย่างเสถียร
+                            return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
+                        return None
                     
-                    # ถ้าเลือกคอลัมน์ 'หน้า' ให้แปลงเป็น ImageColumn
                     if 'หน้า' in preview_excel_df.columns:
                         preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url)
                         
-                        st.markdown("**📋 Preview ข้อมูลที่จะส่งออก (ดึงภาพใบหน้าอัตโนมัติ):**")
+                        st.markdown("**📋 Preview ข้อมูลที่จะส่งออก:**")
                         st.dataframe(
                             preview_excel_df, 
                             use_container_width=True, 
                             hide_index=True,
                             column_config={
-                                "หน้า": st.column_config.ImageColumn("รูปหน้าผู้ป่วย", help="ภาพจาก Google Drive")
+                                # เปลี่ยนชื่อคอลัมน์รูปภาพบนเว็บเป็น "ระดับ"
+                                "หน้า": st.column_config.ImageColumn("ระดับ", help="ภาพจาก Google Drive")
                             }
                         )
                     else:
                         st.markdown("**📋 Preview ข้อมูลที่จะส่งออก:**")
                         st.dataframe(preview_excel_df, use_container_width=True, hide_index=True)
-                    # -------------------------------------------------------------------------
                     
                     excel_bytes = generate_excel_with_images(excel_df, selected_export_cols)
                     
