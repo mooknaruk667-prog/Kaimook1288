@@ -33,9 +33,9 @@ plt.switch_backend('Agg')
 # ==========================================
 # 🚀 เริ่มต้นโปรแกรม Streamlit
 # ==========================================
-st.set_page_config(page_title="ระบบฐาน Report ข้อมูลจิตเวช", page_icon="📄", layout="wide")
+st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="📄", layout="wide")
 
-st.title("📄 ระบบฐาน Report ข้อมูลจิตเวช")
+st.title("📄 ระบบ Report ข้อมูลจิตเวช")
 st.markdown("ดึงข้อมูลจาก Google Sheet และสรุปเป็น PDF / Excel")
 
 # URL ของ Google Sheet
@@ -89,7 +89,12 @@ if df is not None:
             # ==========================================
             total_patients = len(filtered_df)
             new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
-            red_cases = sum(filtered_df['หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
+            
+            # ป้องกัน Error โดยแปลงคอลัมน์ "หน้า" เป็น string (ข้อความ) เสมอ
+            if 'หน้า' in filtered_df.columns:
+                red_cases = sum(filtered_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
+            else:
+                red_cases = 0
             
             filtered_df['เพศ'] = filtered_df['เพศ'].astype(str).str.strip()
             male_count = len(filtered_df[filtered_df['เพศ'] == 'ชาย'])
@@ -106,7 +111,7 @@ if df is not None:
             # ==========================================
             # 🗂️ แยกการทำงานเป็น 2 แท็บ
             # ==========================================
-            tab_pdf, tab_excel = st.tabs(["📄 รายงาน PDF (สำหรับผู้บริหาร)", "📊 รายงานทั่วไป (Excel)"])
+            tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
             
             # ------------------------------------------
             # TAB 1: ระบบรายงาน PDF
@@ -121,9 +126,10 @@ if df is not None:
                 
                 def highlight_red_preview(subset_df):
                     styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
-                    red_mask = filtered_df.loc[subset_df.index, 'หน้า'].astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
-                    for col in styles.columns:
-                        styles.loc[red_mask, col] = 'background-color: #fee2e2;'
+                    if 'หน้า' in filtered_df.columns:
+                        red_mask = filtered_df.loc[subset_df.index, 'หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
+                        for col in styles.columns:
+                            styles.loc[red_mask, col] = 'background-color: #fee2e2;'
                     return styles
 
                 styled_preview = filtered_df[avail_cols].style.apply(highlight_red_preview, axis=None)
@@ -191,15 +197,20 @@ if df is not None:
                         else:
                             chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                        # กราฟระดับสี
+                        # กราฟระดับสี (ป้องกัน TypeError แบบเด็ดขาดด้วย str())
                         color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                         level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
-                        for face_url in filtered_df['หน้า'].astype(str):
-                            if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: level_counts['แดง'] += 1
-                            elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: level_counts['ส้ม'] += 1
-                            elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url: level_counts['เหลือง'] += 1
-                            elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url: level_counts['เขียว'] += 1
-                            else: level_counts['เทา'] += 1
+                        
+                        if 'หน้า' in filtered_df.columns:
+                            for face_url in filtered_df['หน้า']:
+                                face_url = str(face_url) # แปลงค่าให้เป็น String อย่างปลอดภัย
+                                if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: level_counts['แดง'] += 1
+                                elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: level_counts['ส้ม'] += 1
+                                elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url: level_counts['เหลือง'] += 1
+                                elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url: level_counts['เขียว'] += 1
+                                else: level_counts['เทา'] += 1
+                        else:
+                            level_counts['เทา'] = len(filtered_df)
                             
                         active_levels = {k: v for k, v in level_counts.items() if v > 0}
                         level_chart_img_tag = ""
