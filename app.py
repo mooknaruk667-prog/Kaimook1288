@@ -92,74 +92,125 @@ def generate_excel_with_images(export_df, export_cols):
 # ==========================================
 st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="🌿", layout="wide")
 
-# 🔥 แทรก CSS ตกแต่งหน้าเว็บ ธีม Mental Health สีพาสเทล
+# 🔥 แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI / SaaS Dashboard
 st.markdown("""
 <style>
-    /* พื้นหลังแอป */
+    /* พื้นหลังแอป สะอาดตาแบบ Modern */
     .stApp {
-        background-color: #F4F9F9; /* สีฟ้าน้ำทะเลอ่อนๆ ให้ความรู้สึกสงบและสะอาด */
+        background-color: #F8FAFC; 
     }
-    /* หัวข้อหลัก */
-    h1, h2, h3 {
-        color: #5D7B93; /* สีฟ้าน้ำเงินตุ่นๆ สบายตา ไม่ฉูดฉาด */
+    
+    /* หัวข้อหลัก เล่น Gradient ทันสมัย */
+    h1 {
+        background: -webkit-linear-gradient(45deg, #0284c7, #0d9488);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800 !important;
         font-family: 'Sarabun', sans-serif;
     }
-    /* กล่อง Metric (สรุปตัวเลข Dashboard) */
-    [data-testid="stMetric"] {
-        background-color: #FFFFFF;
-        border-radius: 16px;
-        padding: 15px 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.04);
-        border-top: 5px solid #A1C7E0; /* แถบสีฟ้าพาสเทลด้านบน */
+    h2, h3 {
+        color: #1e293b;
+        font-family: 'Sarabun', sans-serif;
+        font-weight: 700;
     }
+    
+    /* กล่อง Metric (สรุปตัวเลข Dashboard ลอยขึ้นมีมิติ) */
+    [data-testid="stMetric"] {
+        background-color: #ffffff;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid #0ea5e9; /* แถบสีด้านซ้ายดูพรีเมียม */
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* ข้อความหัวข้อย่อยในกล่อง Metric (ดูอินเตอร์) */
+    [data-testid="stMetricLabel"] {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #64748b !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* ตัวเลขในกล่อง Metric (เด่นชัด) */
+    [data-testid="stMetricValue"] {
+        font-size: 28px !important; 
+        color: #0f172a !important; 
+        font-weight: 800 !important;
+        margin-top: 5px;
+    }
+    
     /* กล่องตัวกรอง (Multiselect) */
     .stMultiSelect div[data-baseweb="select"] {
-        border-radius: 12px;
-        background-color: #FFFFFF;
-        border: 1px solid #DDE6ED;
+        border-radius: 10px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
-    /* รูปแบบ Tabs */
+    
+    /* รูปแบบ Tabs สไตล์ Minimal */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 12px;
+        border-bottom: 2px solid #e2e8f0;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #E8F0FE;
-        border-radius: 10px 10px 0 0;
-        padding: 10px 20px;
-        color: #5D7B93;
+        background-color: transparent;
+        border-radius: 8px 8px 0 0;
+        padding: 12px 24px;
+        color: #64748b;
+        font-weight: 600;
         border: none;
+        transition: all 0.2s;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #B5D5C5; /* สีเขียวพาสเทลฮีลใจ สำหรับแท็บที่กำลังเปิด */
-        color: #2C3E50;
-        font-weight: 600;
+        color: #0ea5e9;
+        background-color: #f0f9ff;
+        border-bottom: 3px solid #0ea5e9; /* เส้นใต้แท็บสีฟ้า */
     }
-    /* ปุ่มกดหลัก */
+    
+    /* ปุ่มกดหลัก (Gradient Button ทันสมัย) */
     .stButton>button {
-        background-color: #B5D5C5; /* สีเขียวพาสเทล */
-        color: #2C3E50;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        color: white;
+        border-radius: 10px;
         border: none;
-        padding: 10px 24px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        padding: 12px 24px;
+        box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.3);
         transition: all 0.3s ease;
         font-weight: 600;
     }
     .stButton>button:hover {
-        background-color: #9EBEAE;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 10px -1px rgba(14, 165, 233, 0.4);
         color: white;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        border: none;
     }
+    
+    /* กรอบตารางข้อมูล (DataFrame) มุมมน */
+    [data-testid="stDataFrame"] {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+    }
+    
     /* กล่องข้อความ Text Area */
     .stTextArea textarea {
-        border-radius: 12px;
-        border: 1px solid #DDE6ED;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
-st.markdown("<p style='color:#7895A2; font-size:16px;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
 
 # URL ของ Google Sheet
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
@@ -235,7 +286,7 @@ if df is not None:
                 dash_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย ({red_pct:.1f}%)")
                 
                 with dash_col4:
-                    st.markdown("<p style='font-size:14px; font-weight:600; color:#5D7B93; margin-bottom:-10px;'>🚻 สัดส่วนเพศ (Gender)</p>", unsafe_allow_html=True)
+                    st.markdown("<p style='font-size:13px; font-weight:700; color:#64748b; margin-bottom:-10px; text-transform:uppercase; letter-spacing:0.5px;'>🚻 สัดส่วนเพศ (Gender)</p>", unsafe_allow_html=True)
                     if male_count + female_count > 0:
                         fig_dash, ax_dash = plt.subplots(figsize=(2.5, 1.5))
                         fig_dash.patch.set_alpha(0.0) 
@@ -246,23 +297,23 @@ if df is not None:
                         if male_count > 0:
                             sizes.append(male_count)
                             labels.append('Male')
-                            colors.append('#AEC6CF') # สีฟ้าพาสเทล
+                            colors.append('#38bdf8') # สีฟ้าทันสมัย
                         if female_count > 0:
                             sizes.append(female_count)
                             labels.append('Female')
-                            colors.append('#FFB7B2') # สีชมพูพาสเทล
+                            colors.append('#f472b6') # สีชมพูทันสมัย
                             
                         wedges, texts, autotexts = ax_dash.pie(
                             sizes, labels=labels, 
                             autopct=lambda p: f"{int(round(p * sum(sizes) / 100))}\n({p:.1f}%)",
                             colors=colors, startangle=90,
-                            textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
+                            textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME, 'fontweight': 'bold'}
                         )
                         
                         for text in texts:
-                            text.set_color('#5D7B93') # สีตัวอักษรด้านนอกให้กลืนกับธีม
+                            text.set_color('#475569') 
                         for autotext in autotexts:
-                            autotext.set_color('#4A4A4A') # สีตัวอักษรด้านในให้อ่านง่าย
+                            autotext.set_color('#ffffff') 
                             
                         ax_dash.axis('equal')
                         
@@ -279,7 +330,7 @@ if df is not None:
                 tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
                 
                 # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF (ไม่แตะต้อง)
+                # TAB 1: ระบบรายงาน PDF (คงไว้ 100%)
                 # ------------------------------------------
                 with tab_pdf:
                     problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -294,7 +345,7 @@ if df is not None:
                         if 'หน้า' in filtered_df.columns:
                             red_mask = filtered_df.loc[subset_df.index, 'หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
                             for col in styles.columns:
-                                styles.loc[red_mask, col] = 'background-color: #FCE4EC;' # สีชมพูอ่อนพาสเทล
+                                styles.loc[red_mask, col] = 'background-color: #fee2e2;' 
                         return styles
 
                     styled_preview = filtered_df[avail_cols].style.apply(highlight_red_preview, axis=None)
@@ -366,7 +417,7 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี (PDF) - ซ่อนข้อความนอกวงกลม
+                            # กราฟระดับสี (PDF) 
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -505,7 +556,7 @@ if df is not None:
                             )
                             
                 # ------------------------------------------
-                # TAB 2: EXCEL Report (ไม่แตะต้อง)
+                # TAB 2: EXCEL Report (คงไว้ 100%)
                 # ------------------------------------------
                 with tab_excel:
                     st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
