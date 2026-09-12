@@ -52,9 +52,9 @@ def generate_excel_with_images(export_df, export_cols):
             # ขยายความกว้างของคอลัมน์รูปภาพ
             worksheet.column_dimensions[col_letter].width = 15
             
-            for row_idx, face_url in enumerate(export_df['หน้า'], start=2): # เริ่มที่แถว 2 (แถว 1 คือหัวตาราง)
-                worksheet.row_dimensions[row_idx].height = 65 # ขยายความสูงของแถว
-                worksheet.cell(row=row_idx, column=col_idx).value = "" # ลบข้อความ URL เดิมออก
+            for row_idx, face_url in enumerate(export_df['หน้า'], start=2):
+                worksheet.row_dimensions[row_idx].height = 65 
+                worksheet.cell(row=row_idx, column=col_idx).value = "" 
                 
                 face_url = str(face_url).strip()
                 match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
@@ -66,13 +66,12 @@ def generate_excel_with_images(export_df, export_cols):
                 
                 if gdrive_id:
                     try:
-                        # โหลดรูปภาพจาก Google Drive
                         direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
                         req = urllib.request.Request(direct_img_url, headers={'User-Agent': 'Mozilla/5.0'})
                         with urllib.request.urlopen(req) as response:
                             img_data = response.read()
                             img = PILImage.open(io.BytesIO(img_data))
-                            img.thumbnail((80, 80)) # ย่อรูปภาพให้พอดีกับช่อง Excel
+                            img.thumbnail((80, 80)) 
                             
                             img_byte_arr = io.BytesIO()
                             img.save(img_byte_arr, format='PNG')
@@ -169,7 +168,7 @@ if df is not None:
             tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
             
             # ------------------------------------------
-            # TAB 1: ระบบรายงาน PDF (คงไว้เหมือนเดิม ไม่มีการเปลี่ยนแปลง)
+            # TAB 1: ระบบรายงาน PDF (คงไว้เหมือนเดิม ไม่แตะต้อง)
             # ------------------------------------------
             with tab_pdf:
                 problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
@@ -235,7 +234,6 @@ if df is not None:
                         new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                         new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                        # กราฟ Dx
                         dx_counts = filtered_df['Dx'].value_counts()
                         chart_img_tag = ""
                         valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -252,7 +250,6 @@ if df is not None:
                         else:
                             chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                        # กราฟระดับสี
                         color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                         level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                         
@@ -376,7 +373,7 @@ if df is not None:
                         st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Report_{file_name_date}.pdf", mime="application/pdf")
                         
             # ------------------------------------------
-            # TAB 2: EXCEL Report (ระบบใหม่ โชว์รูปภาพในเซลล์)
+            # TAB 2: EXCEL Report (ปรับแก้ให้แสดงรูปภาพในตาราง Preview)
             # ------------------------------------------
             with tab_excel:
                 st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
@@ -389,9 +386,40 @@ if df is not None:
                 
                 if selected_export_cols:
                     excel_df = filtered_df[selected_export_cols]
-                    st.dataframe(excel_df, use_container_width=True, hide_index=True)
                     
-                    # เรียกใช้ฟังก์ชันดึงรูปภาพ (มีระบบ cache ป้องกันการโหลดซ้ำ)
+                    # --- ส่วนปรับแก้: แปลง URL ยาวๆ เป็นรูปลงตาราง Preview ของ Streamlit ---
+                    preview_excel_df = excel_df.copy()
+                    
+                    def get_direct_url(url):
+                        url_str = str(url).strip()
+                        match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', url_str)
+                        match2 = re.search(r'id=([a-zA-Z0-9_-]+)', url_str)
+                        gdrive_id = None
+                        if match1: gdrive_id = match1.group(1)
+                        elif match2: gdrive_id = match2.group(1)
+                        
+                        if gdrive_id:
+                            return f"https://drive.google.com/uc?id={gdrive_id}"
+                        return ""
+                    
+                    # ถ้าเลือกคอลัมน์ 'หน้า' ให้แปลงเป็น ImageColumn
+                    if 'หน้า' in preview_excel_df.columns:
+                        preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url)
+                        
+                        st.markdown("**📋 Preview ข้อมูลที่จะส่งออก (ดึงภาพใบหน้าอัตโนมัติ):**")
+                        st.dataframe(
+                            preview_excel_df, 
+                            use_container_width=True, 
+                            hide_index=True,
+                            column_config={
+                                "หน้า": st.column_config.ImageColumn("รูปหน้าผู้ป่วย", help="ภาพจาก Google Drive")
+                            }
+                        )
+                    else:
+                        st.markdown("**📋 Preview ข้อมูลที่จะส่งออก:**")
+                        st.dataframe(preview_excel_df, use_container_width=True, hide_index=True)
+                    # -------------------------------------------------------------------------
+                    
                     excel_bytes = generate_excel_with_images(excel_df, selected_export_cols)
                     
                     file_name_date = selected_date.replace('/', '-') if selected_date != 'ทั้งหมด' else 'All'
