@@ -582,7 +582,6 @@ if df is not None:
                     
                     if selected_export_cols:
                         excel_df = filtered_df[selected_export_cols]
-                        
                         preview_excel_df = excel_df.copy()
                         
                         if 'หน้า' in preview_excel_df.columns:
@@ -609,7 +608,15 @@ if df is not None:
                                 key="excel_editor_no_image"
                             )
                             
-                        excel_bytes = generate_excel_with_images(edited_excel_df, selected_export_cols)
+                        # 🔥 เพิ่มคอลัมน์ "ลำดับ" ก่อนส่งออก
+                        export_df_final = edited_excel_df.copy()
+                        if 'ลำดับ' in export_df_final.columns:
+                            export_df_final = export_df_final.drop(columns=['ลำดับ'])
+                        export_df_final.insert(0, 'ลำดับ', range(1, len(export_df_final) + 1))
+                        
+                        export_cols_final = ['ลำดับ'] + [c for c in selected_export_cols if c != 'ลำดับ']
+                        
+                        excel_bytes = generate_excel_with_images(export_df_final, export_cols_final)
                         
                         file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
                         st.download_button(
