@@ -276,6 +276,8 @@ if df is not None:
                 # ==========================================
                 def get_direct_url_preview(url):
                     url_str = str(url).strip()
+                    if url_str == "" or url_str.lower() == "nan":
+                        return ""
                     match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', url_str)
                     match2 = re.search(r'id=([a-zA-Z0-9_-]+)', url_str)
                     gdrive_id = None
@@ -284,7 +286,7 @@ if df is not None:
                     
                     if gdrive_id:
                         return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
-                    return None
+                    return "" # คืนค่า empty string เพื่อป้องกันระบบ Error (PyArrow type conflict)
 
                 # ==========================================
                 # 🔥 ระบบทำพื้นหลังสีกลุ่มและเคสวิกฤตบนเว็บ
@@ -323,19 +325,21 @@ if df is not None:
                     
                     st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัดแล้ว / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
                     
-                    # 🔥 อัปเดตคอลัมน์ Preview โดยแทรก "ห้อง" เข้าไป
+                    # คอลัมน์ที่ต้องการแสดงผล
                     preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'ห้อง', 'แพทย์']
                     avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
-                    pdf_display_df = filtered_df[avail_cols].copy()
+                    # เคลียร์ค่าว่าง (NaN) ให้เป็น String ปกติเพื่อป้องกันการแครช
+                    pdf_display_df = filtered_df[avail_cols].copy().fillna("")
+                    
                     if 'หน้า' in pdf_display_df.columns:
                         pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(get_direct_url_preview)
 
+                    # 🔥 ใช้ data_editor โชว์ตาราง (เอา num_rows="dynamic" ออกเพื่อป้องกันระบบพังเมื่อใช้กับสีพื้นหลัง)
                     edited_pdf_display = st.data_editor(
                         pdf_display_df.style.apply(highlight_and_group, axis=None),
                         use_container_width=True, 
                         hide_index=True,
-                        num_rows="dynamic",
                         column_order=avail_cols, 
                         key="pdf_editor_with_images",
                         column_config={
@@ -378,7 +382,7 @@ if df is not None:
                                 appt = str(row.get('นัด', '')).replace('nan', '')
                                 doc = str(row.get('แพทย์', '')).replace('nan', '')
                                 
-                                # 🔥 แทรก {room} ลงใน HTML
+                                # แทรกห้องลงใน HTML
                                 html_rows += f"""<tr>
                                     <td style="text-align:center;">{row_num}</td>
                                     <td style="font-weight:bold; color:#1e293b;">{name}</td>
@@ -495,7 +499,6 @@ if df is not None:
                                 </div>
                                 """
 
-                            # 🔥 อัปเดต HTML เพิ่มคอลัมน์ห้องและปรับความกว้างให้พอดี 100%
                             html_content = f"""
                             <!DOCTYPE html>
                             <html lang="th">
@@ -588,14 +591,15 @@ if df is not None:
                     st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
                     all_columns = filtered_df.columns.tolist()
                     
-                    # 🔥 เพิ่ม "ห้อง" ให้เป็นค่า Default สำหรับโหลด Excel
                     default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'ห้อง', 'แพทย์', 'นัด'] if c in all_columns]
                         
                     selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_columns, default=default_cols if default_cols else all_columns)
                     
                     if selected_export_cols:
                         excel_df = filtered_df[selected_export_cols]
-                        preview_excel_df = excel_df.copy()
+                        
+                        # เคลียร์ค่าว่างให้ปลอดภัย
+                        preview_excel_df = excel_df.copy().fillna("")
                         
                         if 'หน้า' in preview_excel_df.columns:
                             preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url_preview)
@@ -605,7 +609,6 @@ if df is not None:
                                 preview_excel_df.style.apply(highlight_and_group, axis=None), 
                                 use_container_width=True, 
                                 hide_index=True,
-                                num_rows="dynamic",
                                 key="excel_editor_with_image",
                                 column_config={
                                     "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)")
@@ -617,7 +620,6 @@ if df is not None:
                                 preview_excel_df.style.apply(highlight_and_group, axis=None), 
                                 use_container_width=True, 
                                 hide_index=True,
-                                num_rows="dynamic",
                                 key="excel_editor_no_image"
                             )
                             
