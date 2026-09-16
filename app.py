@@ -34,7 +34,7 @@ except Exception:
 plt.switch_backend('Agg')
 
 # ==========================================
-# 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ (ไม่แตะต้อง)
+# 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
 # ==========================================
 @st.cache_data(ttl=300, show_spinner="กำลังเตรียมไฟล์ Excel และดาวน์โหลดรูปภาพ (อาจใช้เวลาสักครู่)...")
 def generate_excel_with_images(export_df, export_cols):
@@ -323,7 +323,8 @@ if df is not None:
                     
                     st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัดแล้ว / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
                     
-                    preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'แพทย์']
+                    # 🔥 อัปเดตคอลัมน์ Preview โดยแทรก "ห้อง" เข้าไป
+                    preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'ห้อง', 'แพทย์']
                     avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
                     pdf_display_df = filtered_df[avail_cols].copy()
@@ -339,12 +340,13 @@ if df is not None:
                         key="pdf_editor_with_images",
                         column_config={
                             "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
-                            "นัด": st.column_config.TextColumn("นัดครั้งถัดไป")
+                            "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
+                            "ห้อง": st.column_config.TextColumn("ห้อง")
                         }
                     )
                     
                     edited_df = filtered_df.copy()
-                    for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'แพทย์', 'หน้า']:
+                    for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'ห้อง', 'แพทย์', 'หน้า']:
                         if col in edited_pdf_display.columns and col in edited_df.columns:
                             edited_df[col] = edited_pdf_display[col]
                     
@@ -357,6 +359,7 @@ if df is not None:
                                 status = str(row.get('สถานะ', '')).replace('nan', '')
                                 dx = str(row.get('Dx', '')).replace('nan', '')
                                 symptom = str(row.get('อาการปัจจุบัน', '')).replace('nan', '')
+                                room = str(row.get('ห้อง', '')).replace('nan', '') # ดึงค่าห้อง
                                 
                                 face_url = str(row.get('หน้า', '')).strip()
                                 match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
@@ -375,6 +378,7 @@ if df is not None:
                                 appt = str(row.get('นัด', '')).replace('nan', '')
                                 doc = str(row.get('แพทย์', '')).replace('nan', '')
                                 
+                                # 🔥 แทรก {room} ลงใน HTML
                                 html_rows += f"""<tr>
                                     <td style="text-align:center;">{row_num}</td>
                                     <td style="font-weight:bold; color:#1e293b;">{name}</td>
@@ -383,6 +387,7 @@ if df is not None:
                                     <td>{symptom}</td>
                                     <td style="text-align:center;">{img_tag}</td>
                                     <td style="color:#0369a1;">{appt}</td>
+                                    <td style="text-align:center;">{room}</td>
                                     <td>{doc}</td>
                                 </tr>"""
 
@@ -490,6 +495,7 @@ if df is not None:
                                 </div>
                                 """
 
+                            # 🔥 อัปเดต HTML เพิ่มคอลัมน์ห้องและปรับความกว้างให้พอดี 100%
                             html_content = f"""
                             <!DOCTYPE html>
                             <html lang="th">
@@ -539,9 +545,15 @@ if df is not None:
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th style="width: 5%;">ที่</th><th style="width: 16%;">ชื่อ-สกุล</th><th style="width: 7%;">สถานะ</th>
-                                            <th style="width: 9%;">Dx</th><th style="width: 30%;">อาการปัจจุบัน</th><th style="width: 6%;">ระดับ</th>
-                                            <th style="width: 13%;">นัดครั้งถัดไป</th><th style="width: 14%;">แพทย์</th>
+                                            <th style="width: 4%;">ที่</th>
+                                            <th style="width: 15%;">ชื่อ-สกุล</th>
+                                            <th style="width: 7%;">สถานะ</th>
+                                            <th style="width: 8%;">Dx</th>
+                                            <th style="width: 27%;">อาการปัจจุบัน</th>
+                                            <th style="width: 6%;">ระดับ</th>
+                                            <th style="width: 11%;">นัดครั้งถัดไป</th>
+                                            <th style="width: 10%;">ห้อง</th>
+                                            <th style="width: 12%;">แพทย์</th>
                                         </tr>
                                     </thead>
                                     <tbody>{html_rows}</tbody>
@@ -576,7 +588,8 @@ if df is not None:
                     st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
                     all_columns = filtered_df.columns.tolist()
                     
-                    default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'แพทย์', 'นัด'] if c in all_columns]
+                    # 🔥 เพิ่ม "ห้อง" ให้เป็นค่า Default สำหรับโหลด Excel
+                    default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'ห้อง', 'แพทย์', 'นัด'] if c in all_columns]
                         
                     selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_columns, default=default_cols if default_cols else all_columns)
                     
@@ -608,7 +621,7 @@ if df is not None:
                                 key="excel_editor_no_image"
                             )
                             
-                        # 🔥 เพิ่มคอลัมน์ "ลำดับ" ก่อนส่งออก
+                        # เพิ่มคอลัมน์ "ลำดับ" ก่อนส่งออก
                         export_df_final = edited_excel_df.copy()
                         if 'ลำดับ' in export_df_final.columns:
                             export_df_final = export_df_final.drop(columns=['ลำดับ'])
