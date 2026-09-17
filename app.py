@@ -36,7 +36,7 @@ plt.switch_backend('Agg')
 # ==========================================
 # 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
 # ==========================================
-@st.cache_data(ttl=300, show_spinner="กำลังเตรียมไฟล์ Excel และดาวน์โหลดรูปภาพ (อาจใช้เวลาสักครู่)...")
+@st.cache_data(ttl=300)
 def generate_excel_with_images(export_df, export_cols):
     import openpyxl
     from openpyxl.utils import get_column_letter
@@ -161,7 +161,8 @@ with col_btn:
     st.write("") 
     st.link_button("📝 เปิดแก้ไขข้อมูลถาวรบน Google Sheet", SHEET_URL.replace("/export?format=csv", "/edit"), type="secondary", use_container_width=True)
 
-@st.cache_data(ttl=60)
+# 🔥 เพิ่ม Spinner ตอนโหลดข้อมูลครั้งแรก
+@st.cache_data(ttl=60, show_spinner="⏳ กำลังโหลดและซิงค์ข้อมูลจาก Google Sheet กรุณารอสักครู่...")
 def load_data(url):
     try:
         df = pd.read_csv(url, on_bad_lines='skip')
@@ -202,7 +203,6 @@ if df is not None:
                 filtered_df = filtered_df[filtered_df['สถานะ'].astype(str).str.strip().isin(selected_statuses)]
 
             if len(filtered_df) > 0:
-                # 🔥 จัดเรียงข้อมูลตามกลุ่ม "นัด" เพื่อให้วันเดียวกันมาอยู่ติดกัน
                 if 'นัด' in filtered_df.columns:
                     filtered_df['นัด'] = filtered_df['นัด'].fillna('')
                     filtered_df = filtered_df.sort_values(by='นัด').reset_index(drop=True)
@@ -286,7 +286,7 @@ if df is not None:
                     
                     if gdrive_id:
                         return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
-                    return "" # คืนค่า empty string เพื่อป้องกันระบบ Error (PyArrow type conflict)
+                    return ""
 
                 # ==========================================
                 # 🔥 ระบบทำพื้นหลังสีกลุ่มและเคสวิกฤตบนเว็บ
@@ -325,17 +325,14 @@ if df is not None:
                     
                     st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัดแล้ว / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
                     
-                    # คอลัมน์ที่ต้องการแสดงผล
                     preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'ห้อง', 'แพทย์']
                     avail_cols = [c for c in preview_cols if c in filtered_df.columns]
                     
-                    # เคลียร์ค่าว่าง (NaN) ให้เป็น String ปกติเพื่อป้องกันการแครช
                     pdf_display_df = filtered_df[avail_cols].copy().fillna("")
                     
                     if 'หน้า' in pdf_display_df.columns:
                         pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(get_direct_url_preview)
 
-                    # 🔥 ใช้ data_editor โชว์ตาราง
                     edited_pdf_display = st.data_editor(
                         pdf_display_df.style.apply(highlight_and_group, axis=None),
                         use_container_width=True, 
@@ -354,16 +351,20 @@ if df is not None:
                         if col in edited_pdf_display.columns and col in edited_df.columns:
                             edited_df[col] = edited_pdf_display[col]
                     
-                    if st.button("🚀 สร้างรายงาน PDF", type="primary"):
-                        with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # 🔥 เพิ่มแถบแสดงสถานะหมุนโหลดแบบละเอียด สำหรับ PDF
+                    if st.button("🚀 สร้างรายงาน PDF", type="primary", key="btn_pdf"):
+                        with st.status("⏳ กำลังสร้างรายงาน PDF กรุณารอสักครู่...", expanded=True) as status:
+                            st.markdown("1️⃣ **กำลังดึงข้อมูลและจัดรูปแบบตาราง...**")
                             
                             html_rows = ""
                             for row_num, (idx, row) in enumerate(edited_df.iterrows(), start=1):
                                 name = str(row.get('ชื่อ-สกุล', '')).replace('nan', '')
-                                status = str(row.get('สถานะ', '')).replace('nan', '')
+                                status_txt = str(row.get('สถานะ', '')).replace('nan', '')
                                 dx = str(row.get('Dx', '')).replace('nan', '')
                                 symptom = str(row.get('อาการปัจจุบัน', '')).replace('nan', '')
-                                room = str(row.get('ห้อง', '')).replace('nan', '') # ดึงค่าห้อง
+                                room = str(row.get('ห้อง', '')).replace('nan', '') 
                                 
                                 face_url = str(row.get('หน้า', '')).strip()
                                 match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
@@ -382,11 +383,10 @@ if df is not None:
                                 appt = str(row.get('นัด', '')).replace('nan', '')
                                 doc = str(row.get('แพทย์', '')).replace('nan', '')
                                 
-                                # แทรกห้องลงใน HTML
                                 html_rows += f"""<tr>
                                     <td style="text-align:center;">{row_num}</td>
                                     <td style="font-weight:bold; color:#1e293b;">{name}</td>
-                                    <td>{status}</td>
+                                    <td>{status_txt}</td>
                                     <td>{dx}</td>
                                     <td>{symptom}</td>
                                     <td style="text-align:center;">{img_tag}</td>
@@ -395,6 +395,7 @@ if df is not None:
                                     <td>{doc}</td>
                                 </tr>"""
 
+                            st.markdown("2️⃣ **กำลังประมวลผลสถิติและวาดกราฟสรุป...**")
                             old_cases = edited_df[edited_df['สถานะ'] == 'รายเก่า']
                             new_cases = edited_df[edited_df['สถานะ'] == 'รายใหม่']
                             old_m = len(old_cases[old_cases['เพศ'] == 'ชาย'])
@@ -402,7 +403,6 @@ if df is not None:
                             new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
                             new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
 
-                            # กราฟ Dx (PDF)
                             dx_counts = edited_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -416,7 +416,6 @@ if df is not None:
                                 kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
                                 for i, p in enumerate(wedges1):
                                     ang = (p.theta2 - p.theta1)/2. + p.theta1
-                                    
                                     safe_ang = ang
                                     if abs(safe_ang % 180) < 1:  
                                         safe_ang += 1.0          
@@ -440,7 +439,6 @@ if df is not None:
                             else:
                                 chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
 
-                            # กราฟระดับสี (PDF)
                             color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
                             level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
                             
@@ -478,7 +476,6 @@ if df is not None:
 
                             logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
                             
-                            # 🔥 เปลี่ยนชื่อหัวข้อ PDF เป็น "รายงาน Tele psychiatry"
                             if "ทั้งหมด" in selected_dates:
                                 title_text = "รายงาน Tele psychiatry"
                             else:
@@ -500,7 +497,7 @@ if df is not None:
                                 </div>
                                 """
 
-                            # HTML Template
+                            st.markdown("3️⃣ **กำลังแปลงและพิมพ์เป็นไฟล์ PDF...**")
                             html_content = f"""
                             <!DOCTYPE html>
                             <html lang="th">
@@ -577,14 +574,16 @@ if df is not None:
                             """
                             pdf_bytes = HTML(string=html_content).write_pdf()
                             
-                            file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
-                            st.success(f"สร้าง PDF สำเร็จ! (ข้อมูล {len(filtered_df)} รายการ)")
-                            st.download_button(
-                                label="📥 ดาวน์โหลดไฟล์ PDF", 
-                                data=pdf_bytes, 
-                                file_name=f"Telepsychiatry_report_{file_name_date}.pdf", 
-                                mime="application/pdf"
-                            )
+                            status.update(label="✅ สร้างไฟล์ PDF เสร็จสมบูรณ์แล้ว!", state="complete", expanded=False)
+                            
+                        file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
+                        st.success(f"🎉 พร้อมดาวน์โหลดแล้ว! (ประมวลผลเสร็จสิ้น {len(filtered_df)} รายการ)")
+                        st.download_button(
+                            label="📥 ดาวน์โหลดไฟล์ PDF ของคุณที่นี่", 
+                            data=pdf_bytes, 
+                            file_name=f"Telepsychiatry_report_{file_name_date}.pdf", 
+                            mime="application/pdf"
+                        )
                             
                 # ------------------------------------------
                 # TAB 2: EXCEL Report
@@ -600,7 +599,6 @@ if df is not None:
                     if selected_export_cols:
                         excel_df = filtered_df[selected_export_cols]
                         
-                        # เคลียร์ค่าว่างให้ปลอดภัย
                         preview_excel_df = excel_df.copy().fillna("")
                         
                         if 'หน้า' in preview_excel_df.columns:
@@ -625,24 +623,34 @@ if df is not None:
                                 key="excel_editor_no_image"
                             )
                             
-                        # เพิ่มคอลัมน์ "ลำดับ" ก่อนส่งออก
-                        export_df_final = edited_excel_df.copy()
-                        if 'ลำดับ' in export_df_final.columns:
-                            export_df_final = export_df_final.drop(columns=['ลำดับ'])
-                        export_df_final.insert(0, 'ลำดับ', range(1, len(export_df_final) + 1))
+                        st.markdown("<br>", unsafe_allow_html=True)
                         
-                        export_cols_final = ['ลำดับ'] + [c for c in selected_export_cols if c != 'ลำดับ']
-                        
-                        excel_bytes = generate_excel_with_images(export_df_final, export_cols_final)
-                        
-                        file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
-                        st.download_button(
-                            label="📥 ดาวน์โหลดไฟล์ Excel (พร้อมรูปภาพ)", 
-                            data=excel_bytes, 
-                            file_name=f"Psychiatry_report_{file_name_date}.xlsx", 
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                            type="primary"
-                        )
+                        # 🔥 เพิ่มแถบแสดงสถานะหมุนโหลดแบบละเอียด สำหรับ EXCEL
+                        if st.button("🚀 สร้างรายงาน Excel", type="primary", key="btn_excel"):
+                            with st.status("⏳ กำลังสร้างไฟล์ Excel กรุณารอสักครู่...", expanded=True) as status:
+                                st.markdown("1️⃣ **กำลังดึงข้อมูลตารางและจัดเรียงลำดับ...**")
+                                
+                                export_df_final = edited_excel_df.copy()
+                                if 'ลำดับ' in export_df_final.columns:
+                                    export_df_final = export_df_final.drop(columns=['ลำดับ'])
+                                export_df_final.insert(0, 'ลำดับ', range(1, len(export_df_final) + 1))
+                                
+                                export_cols_final = ['ลำดับ'] + [c for c in selected_export_cols if c != 'ลำดับ']
+                                
+                                st.markdown("2️⃣ **กำลังดึงรูปภาพจากระบบและแทรกลงในไฟล์ Excel...** (ขั้นตอนนี้อาจใช้เวลาสักครู่)")
+                                excel_bytes = generate_excel_with_images(export_df_final, export_cols_final)
+                                
+                                status.update(label="✅ เตรียมไฟล์ Excel เสร็จสมบูรณ์แล้ว!", state="complete", expanded=False)
+                            
+                            file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
+                            st.success("🎉 พร้อมดาวน์โหลดแล้ว! ไฟล์ Excel ของคุณถูกสร้างเรียบร้อยแล้ว")
+                            st.download_button(
+                                label="📥 ดาวน์โหลดไฟล์ Excel ของคุณที่นี่", 
+                                data=excel_bytes, 
+                                file_name=f"Psychiatry_report_{file_name_date}.xlsx", 
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                                type="primary"
+                            )
 
             else:
                  st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
