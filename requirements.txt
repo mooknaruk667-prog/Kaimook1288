@@ -1,6 +1,5 @@
 streamlit
 pandas
-weasyprint
-matplotlib
-numpy
-openpyxl
+fpdf
+streamlit-gsheets
+xlsxwriter
