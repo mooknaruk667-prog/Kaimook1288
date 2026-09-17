@@ -1,648 +1,440 @@
 import streamlit as st
 import pandas as pd
-import base64
-from weasyprint import HTML
 import io
-import re
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import urllib.request
-import matplotlib.font_manager as fm
+from datetime import datetime
+from fpdf import FPDF
+from streamlit_gsheets import GSheetsConnection
 
-# ==========================================
-# ⚙️ โหลดฟอนต์ Sarabun (แก้ปัญหาสี่เหลี่ยมแบบเด็ดขาด)
-# ==========================================
+# 1. ตั้งค่าหน้าเว็บ
+st.set_page_config(page_title="ระบบบันทึกข้อมูลคลินิกคลายเครียด", layout="wide")
+
+FONT_URL = "https://github.com/google/fonts/raw/main/ofl/sarabun/Sarabun-Regular.ttf"
+FONT_PATH = "Sarabun-Regular.ttf"
+
 @st.cache_resource
-def download_thai_font():
-    font_path = "Sarabun-Regular.ttf"
-    if not os.path.exists(font_path):
-        try:
-            urllib.request.urlretrieve("https://github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Regular.ttf", font_path)
-        except Exception:
-            pass
-    return font_path
+def download_font():
+    if not os.path.exists(FONT_PATH):
+        urllib.request.urlretrieve(FONT_URL, FONT_PATH)
 
-THAI_FONT_PATH = download_thai_font()
-try:
-    fm.fontManager.addfont(THAI_FONT_PATH)
-    THAI_FONT_NAME = fm.FontProperties(fname=THAI_FONT_PATH).get_name()
-    plt.rcParams['font.family'] = THAI_FONT_NAME
-except Exception:
-    THAI_FONT_NAME = 'sans-serif'
+download_font() 
 
-plt.switch_backend('Agg')
+# ================== เชื่อมต่อ Google Sheets ==================
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1wMxwcdcF3zXliTTifINkhinh76VYBh-xSj_7GLLqDxY/edit?usp=sharing"
+INMATE_DB_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/edit?usp=drivesdk"
 
-# ==========================================
-# 🚀 ฟังก์ชันจัดเตรียมไฟล์ Excel พร้อมรูปภาพ
-# ==========================================
-@st.cache_data(ttl=300, show_spinner="กำลังเตรียมไฟล์ Excel และดาวน์โหลดรูปภาพ (อาจใช้เวลาสักครู่)...")
-def generate_excel_with_images(export_df, export_cols):
-    import openpyxl
-    from openpyxl.utils import get_column_letter
-    from PIL import Image as PILImage
-    
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        export_df.to_excel(writer, index=False, sheet_name='ข้อมูลผู้ป่วย')
-        
-        if 'หน้า' in export_cols:
-            worksheet = writer.sheets['ข้อมูลผู้ป่วย']
-            col_idx = export_cols.index('หน้า') + 1
-            col_letter = get_column_letter(col_idx)
-            
-            worksheet.column_dimensions[col_letter].width = 15
-            
-            for row_idx, face_url in enumerate(export_df['หน้า'], start=2):
-                worksheet.row_dimensions[row_idx].height = 65 
-                worksheet.cell(row=row_idx, column=col_idx).value = "" 
-                
-                face_url = str(face_url).strip()
-                match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
-                match2 = re.search(r'id=([a-zA-Z0-9_-]+)', face_url)
-                
-                gdrive_id = None
-                if match1: gdrive_id = match1.group(1)
-                elif match2: gdrive_id = match2.group(1)
-                
-                if gdrive_id:
-                    try:
-                        direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
-                        req = urllib.request.Request(direct_img_url, headers={'User-Agent': 'Mozilla/5.0'})
-                        with urllib.request.urlopen(req) as response:
-                            img_data = response.read()
-                            img = PILImage.open(io.BytesIO(img_data))
-                            img.thumbnail((80, 80)) 
-                            
-                            img_byte_arr = io.BytesIO()
-                            img.save(img_byte_arr, format='PNG')
-                            img_byte_arr.seek(0)
-                            
-                            xl_img = openpyxl.drawing.image.Image(img_byte_arr)
-                            xl_img.anchor = f"{col_letter}{row_idx}"
-                            worksheet.add_image(xl_img)
-                    except Exception:
-                        worksheet.cell(row=row_idx, column=col_idx).value = "โหลดรูปไม่ได้"
-                        
-    return buffer.getvalue()
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ==========================================
-# 🚀 เริ่มต้นโปรแกรม Streamlit
-# ==========================================
-st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="🌿", layout="wide")
-
-# 🔥 แทรก CSS ตกแต่งหน้าเว็บ สไตล์ Modern UI / SaaS Dashboard
-st.markdown("""
-<style>
-    .stApp { background-color: #F8FAFC; }
-    h1 {
-        background: -webkit-linear-gradient(45deg, #0284c7, #0d9488);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800 !important;
-        font-family: 'Sarabun', sans-serif;
-    }
-    h2, h3 { color: #1e293b; font-family: 'Sarabun', sans-serif; font-weight: 700; }
-    
-    [data-testid="stMetric"] {
-        background-color: #ffffff; border-radius: 16px; padding: 20px;
-        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
-        border: 1px solid #e2e8f0; border-left: 6px solid #0ea5e9; 
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    [data-testid="stMetric"]:hover {
-        transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-    }
-    [data-testid="stMetricLabel"] {
-        font-size: 13px !important; font-weight: 600 !important;
-        color: #64748b !important; text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    [data-testid="stMetricValue"] {
-        font-size: 28px !important; color: #0f172a !important; font-weight: 800 !important; margin-top: 5px;
-    }
-    
-    .stMultiSelect div[data-baseweb="select"] {
-        border-radius: 10px; background-color: #ffffff; border: 1px solid #cbd5e1;
-    }
-    
-    .stTabs [data-baseweb="tab-list"] { gap: 12px; border-bottom: 2px solid #e2e8f0; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent; border-radius: 8px 8px 0 0;
-        padding: 12px 24px; color: #64748b; font-weight: 600; border: none; transition: all 0.2s;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #0ea5e9; background-color: #f0f9ff; border-bottom: 3px solid #0ea5e9; 
-    }
-    
-    .stButton>button {
-        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white;
-        border-radius: 10px; border: none; padding: 12px 24px;
-        box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.3); transition: all 0.3s ease; font-weight: 600;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px); box-shadow: 0 6px 10px -1px rgba(14, 165, 233, 0.4); color: white;
-    }
-    
-    [data-testid="stDataFrame"] {
-        border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;
-    }
-    .stTextArea textarea { border-radius: 10px; border: 1px solid #cbd5e1; }
-</style>
-""", unsafe_allow_html=True)
-
-# URL ของ Google Sheet
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
-
-col_title, col_btn = st.columns([3, 1])
-with col_title:
-    st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
-    st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
-with col_btn:
-    st.write("") 
-    st.link_button("📝 เปิดแก้ไขข้อมูลถาวรบน Google Sheet", SHEET_URL.replace("/export?format=csv", "/edit"), type="secondary", use_container_width=True)
-
-@st.cache_data(ttl=60)
-def load_data(url):
+def load_data():
     try:
-        df = pd.read_csv(url, on_bad_lines='skip')
+        df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=0, ttl=0)
+        df = df.fillna("")
+        
+        if df.empty or len(df.columns) == 0:
+            df = pd.DataFrame(columns=[
+                "วันที่", "ชื่อ-สกุล", "เพศ", "อายุ", "แดน/ห้อง", "คดี", "ครั้งที่", 
+                "ประเภทบริการ", "ผลประเมิน", "บันทึกติดตาม", "สถานะติดตาม", "วันที่นัดติดตาม"
+            ])
+            conn.update(spreadsheet=SPREADSHEET_URL, worksheet=0, data=df)
+        else:
+            needs_update = False
+            if 'ชื่อ' in df.columns and 'นามสกุล' in df.columns:
+                df['ชื่อ-สกุล'] = df['ชื่อ'].astype(str) + " " + df['นามสกุล'].astype(str)
+                df['ชื่อ-สกุล'] = df['ชื่อ-สกุล'].str.strip()
+                df = df.drop(columns=['ชื่อ', 'นามสกุล'])
+                needs_update = True
+                
+            cols = ["วันที่", "ชื่อ-สกุล", "เพศ", "อายุ", "แดน/ห้อง", "คดี", "ครั้งที่", "ประเภทบริการ", "ผลประเมิน", "บันทึกติดตาม", "สถานะติดตาม", "วันที่นัดติดตาม"]
+            for c in cols:
+                if c not in df.columns:
+                    df[c] = ""
+                    needs_update = True
+
+            if needs_update:
+                df = df[cols]
+                conn.update(spreadsheet=SPREADSHEET_URL, worksheet=0, data=df)
+                
         return df
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
-        return None
+        st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets หลัก: {e}")
+        return pd.DataFrame(columns=[
+            "วันที่", "ชื่อ-สกุล", "เพศ", "อายุ", "แดน/ห้อง", "คดี", "ครั้งที่", 
+            "ประเภทบริการ", "ผลประเมิน", "บันทึกติดตาม", "สถานะติดตาม", "วันที่นัดติดตาม"
+        ])
 
-df = load_data(SHEET_URL)
+if 'patient_data' not in st.session_state:
+    st.session_state['patient_data'] = load_data()
 
-if df is not None:
-    target_col = "คอลัมน์ 1"
+st.title("🏥 ระบบบันทึกข้อมูลคลินิกคลายเครียด (สจ.21)")
+st.markdown("ระบบออนไลน์ เชื่อมต่อฐานข้อมูล Cloud (ข้อมูลปลอดภัย 100%)")
+
+tab1, tab2 = st.tabs(["📝 บันทึกข้อมูลรายบุคคล", "📊 สรุปและออกรายงาน สจ.21"])
+
+# ================= TAB 1: บันทึกข้อมูล =================
+with tab1:
     
-    if target_col in df.columns:
-        df[target_col] = df[target_col].astype(str).str.strip()
+    # ---- ส่วนดึงข้อมูล Auto-fill ----
+    st.subheader("📥 ดึงข้อมูลผู้ต้องขัง (Auto-fill)")
+    
+    def_name, def_gender, def_age, def_case = "", "ชาย", 30, ""
+    
+    try:
+        inmate_df = conn.read(spreadsheet=INMATE_DB_URL, worksheet=0, ttl=10)
+        inmate_df = inmate_df.fillna("")
         
-        unique_dates = ["ทั้งหมด"] + sorted(list(set([d for d in df[target_col].unique() if d and str(d).lower() != 'nan'])))
-        unique_doctors = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['แพทย์'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
-        unique_statuses = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['สถานะ'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
-        
-        col_filter1, col_filter2, col_filter3 = st.columns(3)
-        with col_filter1:
-            selected_dates = st.multiselect("📅 เลือกวันที่ (เลือกได้มากกว่า 1):", options=unique_dates, default=["ทั้งหมด"])
-        with col_filter2:
-            selected_doctors = st.multiselect("🩺 เลือกแพทย์ผู้ตรวจ:", options=unique_doctors, default=["ทั้งหมด"])
-        with col_filter3:
-            selected_statuses = st.multiselect("📌 เลือกสถานะผู้ป่วย:", options=unique_statuses, default=["ทั้งหมด"])
+        col1_name = next((col for col in inmate_df.columns if 'คอลัมน์ 1' in str(col)), None)
+                
+        if col1_name:
+            unique_vals = [v for v in inmate_df[col1_name].unique() if str(v).strip() != ""]
+            options_1 = ["-- กรุณาเลือกข้อมูล --"] + unique_vals
             
-        if not selected_dates or not selected_doctors or not selected_statuses:
-            st.warning("⚠️ กรุณาเลือกตัวกรองอย่างน้อย 1 รายการในแต่ละช่อง (หรือเลือก 'ทั้งหมด')")
+            selected_val = st.selectbox(f"1️⃣ เลือกข้อมูลจาก {col1_name} (เช่น วันที่):", options_1)
+            
+            if selected_val != "-- กรุณาเลือกข้อมูล --":
+                filtered_inmates = inmate_df[inmate_df[col1_name].astype(str) == str(selected_val)]
+                
+                name_col = "ชื่อ-สกุล" if "ชื่อ-สกุล" in filtered_inmates.columns else filtered_inmates.columns[0]
+                options_2 = ["-- กรุณาพิมพ์หรือเลือกรายชื่อ --"] + filtered_inmates[name_col].astype(str).tolist()
+                
+                selected_inmate = st.selectbox("2️⃣ ค้นหาและเลือกรายชื่อผู้ต้องขัง:", options_2)
+                
+                if selected_inmate != "-- กรุณาพิมพ์หรือเลือกรายชื่อ --":
+                    row = filtered_inmates[filtered_inmates[name_col] == selected_inmate].iloc[0]
+                    def_name = str(row[name_col])
+                    
+                    if "เพศ" in row.index and pd.notna(row["เพศ"]) and str(row["เพศ"]) != "":
+                        def_gender = "หญิง" if "หญิง" in str(row["เพศ"]) else "ชาย"
+                        
+                    if "อายุ" in row.index and pd.notna(row["อายุ"]) and str(row["อายุ"]) != "":
+                        try: def_age = int(float(row["อายุ"]))
+                        except ValueError: def_age = 30
+                            
+                    if "คดี" in row.index and pd.notna(row["คดี"]):
+                        def_case = str(row["คดี"])
         else:
-            filtered_df = df.copy()
-            if "ทั้งหมด" not in selected_dates:
-                filtered_df = filtered_df[filtered_df[target_col].isin(selected_dates)]
-            if "ทั้งหมด" not in selected_doctors:
-                filtered_df = filtered_df[filtered_df['แพทย์'].astype(str).str.strip().isin(selected_doctors)]
-            if "ทั้งหมด" not in selected_statuses:
-                filtered_df = filtered_df[filtered_df['สถานะ'].astype(str).str.strip().isin(selected_statuses)]
+            st.info("💡 ขณะนี้ไม่พบคอลัมน์ชื่อ 'คอลัมน์ 1' ในฐานข้อมูลผู้ต้องขัง")
+            
+    except Exception as e:
+        st.error(f"⚠️ ไม่สามารถดึงข้อมูลจากชีตทะเบียนได้ (ตรวจสอบการแชร์ไฟล์ให้ Email Bot หรือลิงก์) Error: {e}")
 
-            if len(filtered_df) > 0:
-                # 🔥 จัดเรียงข้อมูลตามกลุ่ม "นัด" เพื่อให้วันเดียวกันมาอยู่ติดกัน
-                if 'นัด' in filtered_df.columns:
-                    filtered_df['นัด'] = filtered_df['นัด'].fillna('')
-                    filtered_df = filtered_df.sort_values(by='นัด').reset_index(drop=True)
-
-                st.markdown("---")
+    # ---- ส่วนฟอร์มกรอกข้อมูล ----
+    with st.form("patient_form", clear_on_submit=True):
+        st.subheader("📝 บันทึกข้อมูลเข้ารับบริการ")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            full_name = st.text_input("ชื่อ-สกุล", value=def_name, placeholder="เช่น สมชาย มั่นคง")
+            gender_index = 0 if def_gender == "ชาย" else 1
+            gender = st.radio("เพศ", ["ชาย", "หญิง"], index=gender_index, horizontal=True)
+            age = st.number_input("อายุ (ปี)", min_value=15, max_value=100, step=1, value=def_age)
+            room = st.text_input("แดน / ห้อง")
+            
+        with col2:
+            case_type = st.text_input("ฐานความผิด / คดี", value=def_case)
+            visit_count = st.number_input("รับบริการครั้งที่", min_value=1, step=1)
+            
+            service_type = st.multiselect("ประเภทการเข้ารับบริการ (ตาม สจ.21)", [
+                "คัดกรองผู้ต้องขังเข้าใหม่", "ผู้ต้องขังรายเก่าที่ได้รับการคัดกรองซ้ำ",
+                "ให้บริการตรวจรักษาในเรือนจำ", "ตรวจผ่านระบบ Telepsychiatry",
+                "การบริการคลินิกคลายเครียดให้การปรึกษา", "เฝ้าระวังผู้ต้องขังมีพฤติกรรมเสี่ยงฆ่าตัวตาย",
+                "ฆ่าตัวตายไม่สำเร็จ", "ฆ่าตัวตายสำเร็จ", "อบรมผู้ต้องขังช่วยเหลืองานด้านสุขภาพจิต"
+            ])
+            
+            result = st.multiselect("ผลการประเมิน / การดำเนินการ", [
+                "ปกติ", "พบความผิดปกติ", "ผู้ที่พบปัญหาสุขภาพจิตและได้รับการดูแลรักษา",
+                "รับการประเมินเพื่อวินิจฉัยโรคทางจิตเวช", "ส่งต่อไปรับการรักษานอกเรือนจำ",
+                "โรงพยาบาลรับเป็นผู้ป่วยใน (admit)"
+            ])
+        
+        if st.form_submit_button("💾 บันทึกข้อมูลใหม่"):
+            if full_name.strip():
+                service_type_str = ", ".join(service_type) if service_type else "ไม่ได้ระบุ"
+                result_str = ", ".join(result) if result else "ไม่ได้ระบุ"
                 
-                # ==========================================
-                # 📊 Dashboard สรุปข้อมูลบนเว็บ
-                # ==========================================
-                total_patients = len(filtered_df)
-                new_patients = len(filtered_df[filtered_df['สถานะ'].astype(str).str.strip() == 'รายใหม่'])
+                formatted_date = datetime.now().strftime("%d/%m/%Y %H:%M")
                 
-                if 'หน้า' in filtered_df.columns:
-                    red_cases = sum(filtered_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False))
-                else:
-                    red_cases = 0
+                new_data = {
+                    "วันที่": formatted_date,
+                    "ชื่อ-สกุล": full_name.strip(), 
+                    "เพศ": gender, "อายุ": age,
+                    "แดน/ห้อง": room, "คดี": case_type, "ครั้งที่": visit_count,
+                    "ประเภทบริการ": service_type_str, "ผลประเมิน": result_str,
+                    "บันทึกติดตาม": "", "สถานะติดตาม": "รอดำเนินการ", "วันที่นัดติดตาม": ""
+                }
                 
-                filtered_df['เพศ'] = filtered_df['เพศ'].astype(str).str.strip()
-                male_count = len(filtered_df[filtered_df['เพศ'] == 'ชาย'])
-                female_count = len(filtered_df[filtered_df['เพศ'] == 'หญิง'])
+                new_df = pd.DataFrame([new_data])
+                st.session_state['patient_data'] = pd.concat([st.session_state['patient_data'], new_df], ignore_index=True)
                 
-                new_pct = (new_patients / total_patients * 100) if total_patients > 0 else 0
-                red_pct = (red_cases / total_patients * 100) if total_patients > 0 else 0
-                
-                dash_col1, dash_col2, dash_col3, dash_col4 = st.columns([1, 1.2, 1.2, 1.5])
-                
-                dash_col1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_patients} ราย")
-                dash_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_patients} ราย ({new_pct:.1f}%)")
-                dash_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_cases} ราย ({red_pct:.1f}%)")
-                
-                with dash_col4:
-                    st.markdown("<p style='font-size:13px; font-weight:700; color:#64748b; margin-bottom:-10px; text-transform:uppercase; letter-spacing:0.5px;'>🚻 สัดส่วนเพศ (Gender)</p>", unsafe_allow_html=True)
-                    if male_count + female_count > 0:
-                        fig_dash, ax_dash = plt.subplots(figsize=(2.5, 1.5))
-                        fig_dash.patch.set_alpha(0.0) 
-                        
-                        sizes = []
-                        labels = []
-                        colors = []
-                        if male_count > 0:
-                            sizes.append(male_count)
-                            labels.append('Male')
-                            colors.append('#38bdf8') 
-                        if female_count > 0:
-                            sizes.append(female_count)
-                            labels.append('Female')
-                            colors.append('#f472b6') 
-                            
-                        wedges, texts, autotexts = ax_dash.pie(
-                            sizes, labels=labels, 
-                            autopct=lambda p: f"{int(round(p * sum(sizes) / 100))}\n({p:.1f}%)",
-                            colors=colors, startangle=90,
-                            textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME, 'fontweight': 'bold'}
-                        )
-                        
-                        for text in texts:
-                            text.set_color('#475569') 
-                        for autotext in autotexts:
-                            autotext.set_color('#ffffff') 
-                            
-                        ax_dash.axis('equal')
-                        st.pyplot(fig_dash)
-                        plt.close(fig_dash)
-                    else:
-                        st.info("ไม่มีข้อมูลเพศ")
-                        
-                st.markdown("---")
-
-                # ==========================================
-                # 🔥 ฟังก์ชันแปลง URL เป็น Thumbnail สำหรับตาราง
-                # ==========================================
-                def get_direct_url_preview(url):
-                    url_str = str(url).strip()
-                    if url_str == "" or url_str.lower() == "nan":
-                        return ""
-                    match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', url_str)
-                    match2 = re.search(r'id=([a-zA-Z0-9_-]+)', url_str)
-                    gdrive_id = None
-                    if match1: gdrive_id = match1.group(1)
-                    elif match2: gdrive_id = match2.group(1)
-                    
-                    if gdrive_id:
-                        return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w100"
-                    return "" # คืนค่า empty string เพื่อป้องกันระบบ Error (PyArrow type conflict)
-
-                # ==========================================
-                # 🔥 ระบบทำพื้นหลังสีกลุ่มและเคสวิกฤตบนเว็บ
-                # ==========================================
-                def highlight_and_group(subset_df):
-                    styles = pd.DataFrame('', index=subset_df.index, columns=subset_df.columns)
-                    
-                    if 'นัด' in subset_df.columns:
-                        valid_dates = [d for d in subset_df['นัด'].unique() if str(d).strip() != '' and str(d).lower() != 'nan']
-                        pastel_colors = ['#E0F2F1', '#FFF9C4', '#F3E5F5', '#E3F2FD', '#FBE9E7']
-                        color_map = {date: pastel_colors[i % len(pastel_colors)] for i, date in enumerate(valid_dates)}
-                        
-                        for idx, row in subset_df.iterrows():
-                            appt_date = row.get('นัด', '')
-                            if appt_date in color_map:
-                                styles.loc[idx, 'นัด'] = f'background-color: {color_map[appt_date]}; font-weight: 600;'
-                                
-                    if 'หน้า' in subset_df.columns:
-                        red_mask = subset_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw", na=False)
-                        for col in styles.columns:
-                            styles.loc[red_mask, col] = 'background-color: #FCE4EC;' 
-                            
-                    return styles
-
-                # ==========================================
-                # 🗂️ แยกการทำงานเป็น 2 แท็บ
-                # ==========================================
-                tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
-                
-                # ------------------------------------------
-                # TAB 1: ระบบรายงาน PDF
-                # ------------------------------------------
-                with tab_pdf:
-                    problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
-                    suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
-                    
-                    st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัดแล้ว / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
-                    
-                    # คอลัมน์ที่ต้องการแสดงผล
-                    preview_cols = ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'นัด', 'ห้อง', 'แพทย์']
-                    avail_cols = [c for c in preview_cols if c in filtered_df.columns]
-                    
-                    # เคลียร์ค่าว่าง (NaN) ให้เป็น String ปกติเพื่อป้องกันการแครช
-                    pdf_display_df = filtered_df[avail_cols].copy().fillna("")
-                    
-                    if 'หน้า' in pdf_display_df.columns:
-                        pdf_display_df['หน้า'] = pdf_display_df['หน้า'].apply(get_direct_url_preview)
-
-                    # 🔥 ใช้ data_editor โชว์ตาราง (เอา num_rows="dynamic" ออกเพื่อป้องกันระบบพังเมื่อใช้กับสีพื้นหลัง)
-                    edited_pdf_display = st.data_editor(
-                        pdf_display_df.style.apply(highlight_and_group, axis=None),
-                        use_container_width=True, 
-                        hide_index=True,
-                        column_order=avail_cols, 
-                        key="pdf_editor_with_images",
-                        column_config={
-                            "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
-                            "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
-                            "ห้อง": st.column_config.TextColumn("ห้อง")
-                        }
-                    )
-                    
-                    edited_df = filtered_df.copy()
-                    for col in ['ชื่อ-สกุล', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'นัด', 'ห้อง', 'แพทย์', 'หน้า']:
-                        if col in edited_pdf_display.columns and col in edited_df.columns:
-                            edited_df[col] = edited_pdf_display[col]
-                    
-                    if st.button("🚀 สร้างรายงาน PDF", type="primary"):
-                        with st.spinner('กำลังประมวลผลข้อมูลและสร้างไฟล์ PDF...'):
-                            
-                            html_rows = ""
-                            for row_num, (idx, row) in enumerate(edited_df.iterrows(), start=1):
-                                name = str(row.get('ชื่อ-สกุล', '')).replace('nan', '')
-                                status = str(row.get('สถานะ', '')).replace('nan', '')
-                                dx = str(row.get('Dx', '')).replace('nan', '')
-                                symptom = str(row.get('อาการปัจจุบัน', '')).replace('nan', '')
-                                room = str(row.get('ห้อง', '')).replace('nan', '') # ดึงค่าห้อง
-                                
-                                face_url = str(row.get('หน้า', '')).strip()
-                                match1 = re.search(r'/d/([a-zA-Z0-9_-]+)', face_url)
-                                match2 = re.search(r'id=([a-zA-Z0-9_-]+)', face_url)
-                                
-                                gdrive_id = None
-                                if match1: gdrive_id = match1.group(1)
-                                elif match2: gdrive_id = match2.group(1)
-                                    
-                                if gdrive_id:
-                                    direct_img_url = f"https://drive.google.com/uc?id={gdrive_id}"
-                                    img_tag = f'<img src="{direct_img_url}" style="width:26px;height:26px;object-fit:cover;border-radius:4px;"/>'
-                                else:
-                                    img_tag = "-"
-                                
-                                appt = str(row.get('นัด', '')).replace('nan', '')
-                                doc = str(row.get('แพทย์', '')).replace('nan', '')
-                                
-                                # แทรกห้องลงใน HTML
-                                html_rows += f"""<tr>
-                                    <td style="text-align:center;">{row_num}</td>
-                                    <td style="font-weight:bold; color:#1e293b;">{name}</td>
-                                    <td>{status}</td>
-                                    <td>{dx}</td>
-                                    <td>{symptom}</td>
-                                    <td style="text-align:center;">{img_tag}</td>
-                                    <td style="color:#0369a1;">{appt}</td>
-                                    <td style="text-align:center;">{room}</td>
-                                    <td>{doc}</td>
-                                </tr>"""
-
-                            old_cases = edited_df[edited_df['สถานะ'] == 'รายเก่า']
-                            new_cases = edited_df[edited_df['สถานะ'] == 'รายใหม่']
-                            old_m = len(old_cases[old_cases['เพศ'] == 'ชาย'])
-                            old_f = len(old_cases[old_cases['เพศ'] == 'หญิง'])
-                            new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
-                            new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
-
-                            # กราฟ Dx (PDF)
-                            dx_counts = edited_df['Dx'].value_counts()
-                            chart_img_tag = ""
-                            valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
-                            if valid_dx:
-                                fig1, ax1 = plt.subplots(figsize=(2.8, 2.8))
-                                total_dx = sum(valid_dx.values())
-                                labels1 = [f"{k}\n{v} ({v/total_dx*100:.1f}%)" for k, v in valid_dx.items()]
-                                
-                                wedges1, texts1 = ax1.pie(valid_dx.values(), startangle=90, colors=plt.cm.tab20.colors, radius=0.55)
-                                
-                                kw = dict(arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0), zorder=0, va="center")
-                                for i, p in enumerate(wedges1):
-                                    ang = (p.theta2 - p.theta1)/2. + p.theta1
-                                    
-                                    safe_ang = ang
-                                    if abs(safe_ang % 180) < 1:  
-                                        safe_ang += 1.0          
-                                        
-                                    y = np.sin(np.deg2rad(ang))
-                                    x = np.cos(np.deg2rad(ang))
-                                    x_sign = -1 if x < 0 else 1
-                                    horizontalalignment = "right" if x_sign == -1 else "left"
-                                    
-                                    kw["arrowprops"].update({"connectionstyle": f"angle,angleA=0,angleB={safe_ang}"})
-                                    ax1.annotate(labels1[i], xy=(x*0.55, y*0.55), xytext=(0.75*x_sign, 0.8*y),
-                                                 horizontalalignment=horizontalalignment, fontsize=8, color='#111827', 
-                                                 fontfamily=THAI_FONT_NAME, **kw)
-                                                 
-                                ax1.axis('equal') 
-                                img_buf1 = io.BytesIO()
-                                plt.savefig(img_buf1, format='png', bbox_inches='tight', transparent=True, dpi=120)
-                                img_buf1.seek(0)
-                                chart_img_tag = f'<img src="data:image/png;base64,{base64.b64encode(img_buf1.read()).decode("utf-8")}" style="width:100%; max-width:180px; display:block; margin:auto;"/>'
-                                plt.close(fig1)
-                            else:
-                                chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล Dx</p>"
-
-                            # กราฟระดับสี (PDF)
-                            color_map = {'แดง': '#F44336', 'ส้ม': '#FF9800', 'เหลือง': '#FACC15', 'เขียว': '#4CAF50', 'เทา': '#9E9E9E'}
-                            level_counts = {'แดง': 0, 'ส้ม': 0, 'เหลือง': 0, 'เขียว': 0, 'เทา': 0}
-                            
-                            if 'หน้า' in edited_df.columns:
-                                for face_url in edited_df['หน้า']:
-                                    face_url = str(face_url)
-                                    if "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw" in face_url: level_counts['แดง'] += 1
-                                    elif "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P" in face_url: level_counts['ส้ม'] += 1
-                                    elif "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y" in face_url: level_counts['เหลือง'] += 1
-                                    elif "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B" in face_url: level_counts['เขียว'] += 1
-                                    else: level_counts['เทา'] += 1
-                            else:
-                                level_counts['เทา'] = len(edited_df)
-                                
-                            active_levels = {k: v for k, v in level_counts.items() if v > 0}
-                            level_chart_img_tag = ""
-                            if active_levels:
-                                fig2, ax2 = plt.subplots(figsize=(2.2, 2.2))
-                                colors2 = [color_map[k] for k in active_levels.keys()]
-                                
-                                wedges2, texts2, autotexts2 = ax2.pie(
-                                    active_levels.values(), 
-                                    autopct=lambda p: f"{int(round(p * sum(active_levels.values()) / 100))} ({p:.1f}%)",
-                                    startangle=90, colors=colors2,
-                                    textprops={'fontsize': 8, 'fontfamily': THAI_FONT_NAME}
-                                )
-                                ax2.axis('equal')
-                                img_buf2 = io.BytesIO()
-                                plt.savefig(img_buf2, format='png', bbox_inches='tight', transparent=True, dpi=120)
-                                img_buf2.seek(0)
-                                level_chart_img_tag = f'<img src="data:image/png;base64,{base64.b64encode(img_buf2.read()).decode("utf-8")}" style="width:100%; max-width:130px; display:block; margin:auto;"/>'
-                                plt.close(fig2)
-                            else:
-                                level_chart_img_tag = "<p style='text-align:center; font-size: 9pt;'>ไม่มีข้อมูล</p>"
-
-                            logo_src = "https://drive.google.com/uc?id=1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
-                            
-                            if "ทั้งหมด" in selected_dates:
-                                title_text = "รายงานข้อมูลจิตเวช"
-                            else:
-                                title_text = f"รายงานข้อมูลจิตเวช วันที่ {', '.join(selected_dates)}"
-
-                            bottom_sections = ""
-                            if problem_text.strip():
-                                bottom_sections += f"""
-                                <div style="background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; margin-top: 15px;">
-                                    <h3 style="color: #b91c1c; margin-top: 0; font-size: 10pt;">ปัญหา / อุปสรรค</h3>
-                                    <p style="margin: 0; font-size: 9pt; white-space: pre-line;">{problem_text}</p>
-                                </div>
-                                """
-                            if suggestion_text.strip():
-                                bottom_sections += f"""
-                                <div style="background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 12px; margin-top: 15px;">
-                                    <h3 style="color: #15803d; margin-top: 0; font-size: 10pt;">ข้อเสนอแนะ</h3>
-                                    <p style="margin: 0; font-size: 9pt; white-space: pre-line;">{suggestion_text}</p>
-                                </div>
-                                """
-
-                            html_content = f"""
-                            <!DOCTYPE html>
-                            <html lang="th">
-                            <head>
-                            <meta charset="UTF-8">
-                            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-                            <style>
-                                @page {{ size: A4 portrait; margin: 10mm 10mm 15mm 10mm; }}
-                                body {{ font-family: 'Sarabun', sans-serif; font-size: 11pt; color: #334155; line-height: 1.5; }}
-                                .header-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; }}
-                                .header-table td {{ border: none; padding-bottom: 10px; vertical-align: bottom; }}
-                                .header-logo {{ width: 130px; text-align: center; }}
-                                .header-logo img {{ width: 55px; height: auto; }}
-                                .header-logo p {{ font-size: 9pt; font-weight: bold; margin-top: 5px; margin-bottom: 0; }}
-                                h1 {{ text-align: center; margin: 0; font-size: 12pt; }}
-                                .summary-container {{ width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 20px; table-layout: fixed; }}
-                                .summary-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; vertical-align: top; width: 33.33%; }}
-                                .summary-box h3 {{ margin-top: 0; color: #0369a1; font-size: 10pt; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; }}
-                                .data-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: auto; }}
-                                .data-table th, .data-table td {{ padding: 6px 4px; vertical-align: middle; font-size: 9pt; border-bottom: 1px solid #e2e8f0; }}
-                                .data-table th {{ background-color: #1e293b; color: #ffffff; text-align: center; font-weight: 600; }}
-                                .data-table tr:nth-child(even) {{ background-color: #f8fafc; }}
-                                .signature-section {{ margin-top: 30px; text-align: left; page-break-inside: avoid; }}
-                            </style>
-                            </head>
-                            <body>
-                                <table class="header-table">
-                                    <tr>
-                                        <td class="header-logo"><img src="{logo_src}"><p>สถานพยาบาลเรือนจำ<br>จังหวัดบุรีรัมย์</p></td>
-                                        <td style="vertical-align: middle;"><h1>{title_text}</h1></td>
-                                        <td style="width: 130px;"></td> 
-                                    </tr>
-                                </table>
-                                <table class="summary-container">
-                                    <tr>
-                                        <td class="summary-box" style="text-align: left;">
-                                            <h3>สรุปสถานะผู้ป่วย</h3>
-                                            <p style="margin: 0 0 5px 0; font-size: 9pt;">
-                                                <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
-                                                <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
-                                            </p>
-                                        </td>
-                                        <td class="summary-box" style="text-align: center;"><h3>สรุปการวินิจฉัยโรค</h3>{chart_img_tag}</td>
-                                        <td class="summary-box" style="text-align: center;"><h3>สรุปเคสตามระดับสี</h3>{level_chart_img_tag}</td>
-                                    </tr>
-                                </table>
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 4%;">ที่</th>
-                                            <th style="width: 15%;">ชื่อ-สกุล</th>
-                                            <th style="width: 7%;">สถานะ</th>
-                                            <th style="width: 8%;">Dx</th>
-                                            <th style="width: 27%;">อาการปัจจุบัน</th>
-                                            <th style="width: 6%;">ระดับ</th>
-                                            <th style="width: 11%;">นัดครั้งถัดไป</th>
-                                            <th style="width: 10%;">ห้อง</th>
-                                            <th style="width: 12%;">แพทย์</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>{html_rows}</tbody>
-                                </table>
-                                {bottom_sections}
-                                <div class="signature-section">
-                                    <p style="margin-bottom: 20px; font-size: 11pt;">เรียน ผู้บัญชาการเรือนจำฯ<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>
-                                    <br><br>
-                                    <div style="display: inline-block; text-align: center;">
-                                        <p style="margin: 0; font-size: 9pt;">(นางสาวเดือนนภา เบี้ยชาติไทย)</p>
-                                        <p style="margin: 5px 0 0 0; font-size: 9pt;">นักจิตวิทยาปฏิบัติการ</p>
-                                    </div>
-                                </div>
-                            </body>
-                            </html>
-                            """
-                            pdf_bytes = HTML(string=html_content).write_pdf()
-                            
-                            file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
-                            st.success(f"สร้าง PDF สำเร็จ! (ข้อมูล {len(filtered_df)} รายการ)")
-                            st.download_button(
-                                label="📥 ดาวน์โหลดไฟล์ PDF", 
-                                data=pdf_bytes, 
-                                file_name=f"Telepsychiatry_report_{file_name_date}.pdf", 
-                                mime="application/pdf"
-                            )
-                            
-                # ------------------------------------------
-                # TAB 2: EXCEL Report
-                # ------------------------------------------
-                with tab_excel:
-                    st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
-                    all_columns = filtered_df.columns.tolist()
-                    
-                    default_cols = [c for c in ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'ห้อง', 'แพทย์', 'นัด'] if c in all_columns]
-                        
-                    selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_columns, default=default_cols if default_cols else all_columns)
-                    
-                    if selected_export_cols:
-                        excel_df = filtered_df[selected_export_cols]
-                        
-                        # เคลียร์ค่าว่างให้ปลอดภัย
-                        preview_excel_df = excel_df.copy().fillna("")
-                        
-                        if 'หน้า' in preview_excel_df.columns:
-                            preview_excel_df['หน้า'] = preview_excel_df['หน้า'].apply(get_direct_url_preview)
-                            
-                            st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัด / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
-                            edited_excel_df = st.data_editor(
-                                preview_excel_df.style.apply(highlight_and_group, axis=None), 
-                                use_container_width=True, 
-                                hide_index=True,
-                                key="excel_editor_with_image",
-                                column_config={
-                                    "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)")
-                                }
-                            )
-                        else:
-                            st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัด / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
-                            edited_excel_df = st.data_editor(
-                                preview_excel_df.style.apply(highlight_and_group, axis=None), 
-                                use_container_width=True, 
-                                hide_index=True,
-                                key="excel_editor_no_image"
-                            )
-                            
-                        # เพิ่มคอลัมน์ "ลำดับ" ก่อนส่งออก
-                        export_df_final = edited_excel_df.copy()
-                        if 'ลำดับ' in export_df_final.columns:
-                            export_df_final = export_df_final.drop(columns=['ลำดับ'])
-                        export_df_final.insert(0, 'ลำดับ', range(1, len(export_df_final) + 1))
-                        
-                        export_cols_final = ['ลำดับ'] + [c for c in selected_export_cols if c != 'ลำดับ']
-                        
-                        excel_bytes = generate_excel_with_images(export_df_final, export_cols_final)
-                        
-                        file_name_date = "All_Dates" if "ทั้งหมด" in selected_dates else "_".join([d.replace('/', '-') for d in selected_dates])
-                        st.download_button(
-                            label="📥 ดาวน์โหลดไฟล์ Excel (พร้อมรูปภาพ)", 
-                            data=excel_bytes, 
-                            file_name=f"Psychiatry_report_{file_name_date}.xlsx", 
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                            type="primary"
-                        )
-
+                conn.update(spreadsheet=SPREADSHEET_URL, worksheet=0, data=st.session_state['patient_data'])
+                st.success(f"✅ บันทึกข้อมูลของ {full_name} ขึ้นฐานข้อมูลสำเร็จ!")
             else:
-                 st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
+                st.error("⚠️ กรุณากรอกชื่อ-สกุล")
+
+    # ================= ส่วนตารางที่แก้ไขได้ =================
+    st.markdown("---")
+    st.subheader("📋 ตารางข้อมูลปัจจุบัน (สามารถแก้ไขข้อมูลในตารางได้โดยตรง)")
+    st.info("💡 **วิธีใช้งาน:** ดับเบิลคลิกที่ช่องเพื่อพิมพ์แก้ไขหรือเลือก Drop-down และสามารถคลิกเลือกแถวเพื่อลบข้อมูลได้ เมื่อแก้เสร็จแล้วให้กดปุ่ม **'ยืนยันการแก้ไข'** ด้านล่าง")
+
+    df_current = st.session_state['patient_data']
+    
+    if not df_current.empty:
+        edited_df = st.data_editor(
+            df_current, 
+            num_rows="dynamic", 
+            use_container_width=True,
+            column_config={
+                "เพศ": st.column_config.SelectboxColumn("เพศ", options=["ชาย", "หญิง"]),
+                "ประเภทบริการ": st.column_config.SelectboxColumn("ประเภทบริการ", options=[
+                    "คัดกรองผู้ต้องขังเข้าใหม่", "ผู้ต้องขังรายเก่าที่ได้รับการคัดกรองซ้ำ",
+                    "ให้บริการตรวจรักษาในเรือนจำ", "ตรวจผ่านระบบ Telepsychiatry",
+                    "การบริการคลินิกคลายเครียดให้การปรึกษา", "เฝ้าระวังผู้ต้องขังมีพฤติกรรมเสี่ยงฆ่าตัวตาย",
+                    "ฆ่าตัวตายไม่สำเร็จ", "ฆ่าตัวตายสำเร็จ", "อบรมผู้ต้องขังช่วยเหลืองานด้านสุขภาพจิต"
+                ]),
+                "ผลประเมิน": st.column_config.SelectboxColumn("ผลประเมิน", options=[
+                    "ปกติ", "พบความผิดปกติ", "ผู้ที่พบปัญหาสุขภาพจิตและได้รับการดูแลรักษา",
+                    "รับการประเมินเพื่อวินิจฉัยโรคทางจิตเวช", "ส่งต่อไปรับการรักษานอกเรือนจำ", "โรงพยาบาลรับเป็นผู้ป่วยใน (admit)"
+                ]),
+                "สถานะติดตาม": st.column_config.SelectboxColumn("สถานะติดตาม", options=["รอดำเนินการ", "ติดตามแล้ว", "ติดตามต่อ", "ปิดเคส", "บันทึกครั้งใหม่แล้ว"])
+            }
+        )
+        
+        if st.button("💾 ยืนยันการแก้ไขและบันทึกลงฐานข้อมูล"):
+            edited_df = edited_df.reset_index(drop=True) 
+            st.session_state['patient_data'] = edited_df
+            conn.update(spreadsheet=SPREADSHEET_URL, worksheet=0, data=edited_df)
+            st.success("✅ บันทึกการแก้ไขทั้งหมดลง Google Sheets เรียบร้อยแล้ว!")
+            st.rerun()
     else:
-         st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
+        st.dataframe(df_current, use_container_width=True)
+
+    # ================= ส่วนแจ้งเตือนติดตามผู้ป่วย =================
+    st.markdown("---")
+    st.subheader("🔔 แจ้งเตือนเคสที่ต้องติดตามต่อ")
+    main_db = st.session_state['patient_data']
+    if not main_db.empty:
+        to_follow_up = main_db[main_db['สถานะติดตาม'] == 'ติดตามต่อ']
+        if not to_follow_up.empty:
+            for idx, row in to_follow_up.iterrows():
+                date_str = row['วันที่นัดติดตาม'] if pd.notna(row['วันที่นัดติดตาม']) and str(row['วันที่นัดติดตาม']).strip() != "" else "ไม่ได้ระบุวัน"
+                st.warning(f"📅 **นัดติดตามอาการ:** {row.get('ชื่อ-สกุล', '')} (แดน: {row['แดน/ห้อง']}) — นัดหมายวันที่: **{date_str}**")
+        else:
+            st.info("🎉 ปัจจุบันไม่มีเคสที่ค้างการติดตาม")
+
+    # ================= ส่วนระบบติดตามผู้ป่วย (Follow-up) =================
+    st.markdown("---")
+    st.subheader("🚨 ระบบอัปเดตสถานะผู้ป่วย")
+    
+    if not main_db.empty:
+        abnormal_patients = main_db[(main_db['ผลประเมิน'].astype(str).str.contains("พบความผิดปกติ", na=False)) & (main_db['สถานะติดตาม'] != "บันทึกครั้งใหม่แล้ว")]
+        if not abnormal_patients.empty:
+            for idx, row in abnormal_patients.iterrows():
+                status_icon = "🟢" if row['สถานะติดตาม'] == "ปิดเคส" else ("🟡" if row['สถานะติดตาม'] == "ติดตามต่อ" else "🔴")
+                
+                with st.expander(f"{status_icon} อัปเดตอาการ: {row.get('ชื่อ-สกุล', '')} [สถานะ: {row['สถานะติดตาม']}]"):
+                    st.write(f"**วันที่รับบริการล่าสุด:** {row['วันที่']} | **เข้ารับบริการครั้งที่:** {row['ครั้งที่']}")
+                    
+                    valid_srv_options = ["คัดกรองผู้ต้องขังเข้าใหม่", "ผู้ต้องขังรายเก่าที่ได้รับการคัดกรองซ้ำ", "ให้บริการตรวจรักษาในเรือนจำ", "ตรวจผ่านระบบ Telepsychiatry", "การบริการคลินิกคลายเครียดให้การปรึกษา", "เฝ้าระวังผู้ต้องขังมีพฤติกรรมเสี่ยงฆ่าตัวตาย", "ฆ่าตัวตายไม่สำเร็จ", "ฆ่าตัวตายสำเร็จ", "อบรมผู้ต้องขังช่วยเหลืองานด้านสุขภาพจิต"]
+                    old_srv = [s.strip() for s in str(row.get('ประเภทบริการ', '')).split(",")]
+                    new_service_list = st.multiselect("ประเภทการเข้ารับบริการ (ครั้งนี้)", valid_srv_options, default=[s for s in old_srv if s in valid_srv_options], key=f"srv_{idx}")
+                    
+                    valid_res_options = ["ปกติ", "พบความผิดปกติ", "ผู้ที่พบปัญหาสุขภาพจิตและได้รับการดูแลรักษา", "รับการประเมินเพื่อวินิจฉัยโรคทางจิตเวช", "ส่งต่อไปรับการรักษานอกเรือนจำ", "โรงพยาบาลรับเป็นผู้ป่วยใน (admit)"]
+                    old_res = [r.strip() for r in str(row.get('ผลประเมิน', '')).split(",")]
+                    new_result_list = st.multiselect("ผลประเมิน (อัปเดตล่าสุด)", valid_res_options, default=[r for r in old_res if r in valid_res_options], key=f"res_{idx}")
+                    
+                    status_options = ["รอดำเนินการ", "ติดตามแล้ว", "ติดตามต่อ", "ปิดเคส"]
+                    current_status = row['สถานะติดตาม'] if pd.notna(row['สถานะติดตาม']) and row['สถานะติดตาม'] != "" else "รอดำเนินการ"
+                    new_status = st.selectbox("สถานะการติดตาม", status_options, index=status_options.index(current_status) if current_status in status_options else 0, key=f"status_{idx}")
+                    
+                    new_date_str = row['วันที่นัดติดตาม']
+                    if new_status == "ติดตามต่อ":
+                        parsed_date = datetime.strptime(str(row['วันที่นัดติดตาม']), "%Y-%m-%d").date() if pd.notna(row['วันที่นัดติดตาม']) and str(row['วันที่นัดติดตาม']).strip() != "" else datetime.now().date()
+                        new_date_str = st.date_input("ระบุวันที่นัดติดตามครั้งต่อไป", value=parsed_date, key=f"date_{idx}").strftime("%Y-%m-%d")
+                    else:
+                        new_date_str = "" 
+                    
+                    new_note = st.text_area("บันทึกความคืบหน้าของอาการ:", value=row['บันทึกติดตาม'] if pd.notna(row['บันทึกติดตาม']) else "", key=f"note_{idx}")
+                    
+                    next_visit_num = int(float(row['ครั้งที่'])) + 1 if pd.notna(row['ครั้งที่']) and str(row['ครั้งที่']).strip() != "" else 2
+                    create_new_visit = st.checkbox(f"✅ บันทึกเป็นประวัติการเข้ารับบริการครั้งใหม่ (ปรับเป็นครั้งที่ {next_visit_num})", value=True, key=f"new_visit_{idx}")
+                    
+                    if create_new_visit:
+                        record_date_update = st.date_input("📅 วันที่รับบริการ (สำหรับการบันทึกประวัติครั้งใหม่)", value=datetime.now(), key=f"new_date_{idx}")
+                    
+                    if st.button("💾 บันทึกอัปเดต", key=f"save_note_{idx}"):
+                        if create_new_visit:
+                            st.session_state['patient_data'].at[idx, 'สถานะติดตาม'] = "บันทึกครั้งใหม่แล้ว"
+                            new_row = row.to_dict()
+                            
+                            update_formatted_date = record_date_update.strftime("%d/%m/%Y") + datetime.now().strftime(" %H:%M")
+                            new_row.update({
+                                "วันที่": update_formatted_date, 
+                                "ครั้งที่": next_visit_num, 
+                                "ประเภทบริการ": ", ".join(new_service_list), 
+                                "ผลประเมิน": ", ".join(new_result_list), 
+                                "บันทึกติดตาม": new_note, 
+                                "สถานะติดตาม": new_status, 
+                                "วันที่นัดติดตาม": new_date_str
+                            })
+                            st.session_state['patient_data'] = pd.concat([st.session_state['patient_data'], pd.DataFrame([new_row])], ignore_index=True)
+                        else:
+                            st.session_state['patient_data'].loc[idx, ['ประเภทบริการ', 'ผลประเมิน', 'บันทึกติดตาม', 'สถานะติดตาม', 'วันที่นัดติดตาม']] = [", ".join(new_service_list), ", ".join(new_result_list), new_note, new_status, new_date_str]
+                        
+                        conn.update(spreadsheet=SPREADSHEET_URL, worksheet=0, data=st.session_state['patient_data'])
+                        st.success("บันทึกการติดตามเรียบร้อยแล้ว!")
+                        st.rerun() 
+        else:
+            st.success("ไม่มีผู้ป่วยที่พบความผิดปกติที่ต้องติดตาม")
+
+# ================= TAB 2: สรุปรายงาน สจ.21 =================
+with tab2:
+    st.subheader("⚙️ ตั้งค่ารายงานประจำเดือน (ดึงข้อมูลเฉพาะเดือนที่เลือก)")
+    
+    col_m, col_y, col_d = st.columns(3)
+    with col_m:
+        months_th = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+        report_month = st.selectbox("ประจำเดือน", months_th, index=datetime.now().month-1)
+    with col_y:
+        current_year_th = datetime.now().year + 543
+        report_year = st.number_input("ปี (พ.ศ.)", value=current_year_th, step=1)
+    with col_d:
+        report_date = st.date_input("ข้อมูล ณ วันที่พิมพ์รายงาน", datetime.now())
+        
+    col_act1, col_act2 = st.columns([3, 1])
+    with col_act1:
+        other_act_name = st.text_input("กิจกรรมส่งเสริมสุขภาพจิตอื่นๆ (ระบุชื่อกิจกรรม)", placeholder="เช่น จัดบอร์ดความรู้, เสียงตามสาย...")
+    with col_act2:
+        other_act_count = st.number_input("จำนวน (ครั้ง)", min_value=0, step=1)
+        
+    problems = st.text_area("4. ปัญหาและอุปสรรคที่พบ (ถ้ามี)", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่นี่...")
+
+    full_df = st.session_state['patient_data'].copy()
+    
+    target_month_num = months_th.index(report_month) + 1
+    target_year_gregorian = report_year - 543
+    
+    temp_date = pd.to_datetime(full_df['วันที่'], dayfirst=True, errors='coerce')
+    mask = (temp_date.dt.month == target_month_num) & (temp_date.dt.year == target_year_gregorian)
+    
+    df_report = full_df[mask]
+
+    def count_data(service_kw="", result_kw="", gender=""):
+        mask = pd.Series(True, index=df_report.index)
+        if gender: mask = mask & (df_report.get('เพศ', '') == gender)
+        if service_kw: mask = mask & df_report.get('ประเภทบริการ', pd.Series(dtype=str)).astype(str).str.contains(service_kw, na=False)
+        if result_kw: mask = mask & df_report.get('ผลประเมิน', pd.Series(dtype=str)).astype(str).str.contains(result_kw, na=False)
+        return mask.sum()
+
+    def count_unique_person(service_kw, gender):
+        if 'เพศ' not in df_report.columns or 'ประเภทบริการ' not in df_report.columns or 'ชื่อ-สกุล' not in df_report.columns: return 0
+        filtered_df = df_report[(df_report['เพศ'] == gender) & (df_report['ประเภทบริการ'].astype(str).str.contains(service_kw, na=False))]
+        return filtered_df['ชื่อ-สกุล'].nunique()
+
+    st.markdown("---")
+    st.subheader(f"📊 สรุปตัวเลขรายงาน สจ.21 ประจำเดือน {report_month} {report_year}")
+    
+    if not df_report.empty:
+        summary_data = {
+            "รายการ (ตาม สจ.21)": [
+                "1. คัดกรองผู้ต้องขังเข้าใหม่", " - พบความผิดปกติ (เข้าใหม่)", " - ได้รับการดูแลรักษา (เข้าใหม่)",
+                "ผู้ต้องขังรายเก่าที่ได้รับการคัดกรองซ้ำ", " - พบความผิดปกติ (รายเก่า)", " - ได้รับการดูแลรักษา (รายเก่า)",
+                "2. รับการประเมินเพื่อวินิจฉัยโรคทางจิตเวช", "ให้บริการตรวจรักษาในเรือนจำ", "ตรวจผ่านระบบ Telepsychiatry",
+                "ส่งต่อไปรับการรักษานอกเรือนจำ", "โรงพยาบาลรับเป็นผู้ป่วยใน (admit)",
+                "3. การบริการคลินิกคลายเครียดให้การปรึกษา (จำนวนราย)", "การบริการคลินิกคลายเครียดให้การปรึกษา (จำนวนครั้ง)",
+                "เฝ้าระวังผู้ต้องขังมีพฤติกรรมเสี่ยงฆ่าตัวตาย", "ฆ่าตัวตายไม่สำเร็จ", "ฆ่าตัวตายสำเร็จ",
+                "อบรมผู้ต้องขังช่วยเหลืองานด้านสุขภาพจิต"
+            ],
+            "ชาย": [
+                count_data("เข้าใหม่", "", "ชาย"), count_data("เข้าใหม่", "พบความผิดปกติ", "ชาย"), count_data("เข้าใหม่", "ได้รับการดูแลรักษา", "ชาย"),
+                count_data("รายเก่า", "", "ชาย"), count_data("รายเก่า", "พบความผิดปกติ", "ชาย"), count_data("รายเก่า", "ได้รับการดูแลรักษา", "ชาย"),
+                count_data("", "วินิจฉัย", "ชาย"), count_data("รักษาในเรือนจำ", "", "ชาย"), count_data("Telepsychiatry", "", "ชาย"),
+                count_data("", "ส่งต่อไปรับ", "ชาย"), count_data("", "admit", "ชาย"),
+                count_unique_person("ให้การปรึกษา", "ชาย"), count_data("ให้การปรึกษา", "", "ชาย"),
+                count_data("เฝ้าระวัง", "", "ชาย"), count_data("ฆ่าตัวตายไม่สำเร็จ", "", "ชาย"), count_data("ฆ่าตัวตายสำเร็จ", "", "ชาย"), count_data("อบรม", "", "ชาย")
+            ],
+            "หญิง": [
+                count_data("เข้าใหม่", "", "หญิง"), count_data("เข้าใหม่", "พบความผิดปกติ", "หญิง"), count_data("เข้าใหม่", "ได้รับการดูแลรักษา", "หญิง"),
+                count_data("รายเก่า", "", "หญิง"), count_data("รายเก่า", "พบความผิดปกติ", "หญิง"), count_data("รายเก่า", "ได้รับการดูแลรักษา", "หญิง"),
+                count_data("", "วินิจฉัย", "หญิง"), count_data("รักษาในเรือนจำ", "", "หญิง"), count_data("Telepsychiatry", "", "หญิง"),
+                count_data("", "ส่งต่อไปรับ", "หญิง"), count_data("", "admit", "หญิง"),
+                count_unique_person("ให้การปรึกษา", "หญิง"), count_data("ให้การปรึกษา", "", "หญิง"),
+                count_data("เฝ้าระวัง", "", "หญิง"), count_data("ฆ่าตัวตายไม่สำเร็จ", "", "หญิง"), count_data("ฆ่าตัวตายสำเร็จ", "", "หญิง"), count_data("อบรม", "", "หญิง")
+            ]
+        }
+        
+        summary_df = pd.DataFrame(summary_data)
+        st.table(summary_df)
+        
+        def generate_pdf():
+            pdf = FPDF()
+            pdf.add_page()
+            
+            if os.path.exists(FONT_PATH):
+                pdf.add_font("Sarabun", style="", fname=FONT_PATH)
+                pdf.set_font("Sarabun", size=18)
+            else:
+                pdf.set_font("Arial", size=16)
+
+            date_str = report_date.strftime("%d/%m/%Y")
+            
+            # --- เปลี่ยนชื่อหัวรายงานตรงนี้ ---
+            pdf.cell(0, 10, f"รายงาน Tele psychiatry วันที่ {date_str}", ln=True, align="C")
+            pdf.set_font("Sarabun", size=16)
+            pdf.cell(0, 10, f"เรือนจำจังหวัดบุรีรัมย์", ln=True, align="C")
+            pdf.ln(5)
+
+            pdf.set_font("Sarabun", size=14)
+            for idx, row in summary_df.iterrows():
+                item = row["รายการ (ตาม สจ.21)"]
+                m = row["ชาย"]
+                f = row["หญิง"]
+                pdf.cell(130, 8, txt=item, border=0)
+                pdf.cell(30, 8, txt=f"ชาย: {m} ราย", border=0)
+                pdf.cell(30, 8, txt=f"หญิง: {f} ราย", border=0, ln=True)
+
+            pdf.ln(5)
+            pdf.set_font("Sarabun", size=15)
+            act_text = other_act_name if other_act_name.strip() else "- ไม่ได้ระบุ -"
+            pdf.cell(0, 10, txt=f"กิจกรรมส่งเสริมสุขภาพจิตอื่นๆ (ระบุ): {act_text}    จำนวน {other_act_count} ครั้ง", ln=True)
+            pdf.cell(0, 10, txt="4. ปัญหาและอุปสรรคที่พบ (ถ้ามี):", ln=True)
+            
+            pdf.set_font("Sarabun", size=14)
+            pdf.multi_cell(0, 8, txt=problems if problems.strip() else "- ไม่มี -")
+            
+            pdf.ln(20)
+            pdf.cell(0, 10, txt="ลงชื่อ.......................................................", ln=True, align="R")
+            pdf.cell(0, 10, txt="ผู้ให้การปรึกษา/ทีมสุขภาพจิตเรือนจำ", ln=True, align="R")
+            
+            return bytes(pdf.output())
+
+        st.markdown("### 📥 ดาวน์โหลดรายงาน")
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            # 1. ทำสำเนาข้อมูลเพื่อเตรียมส่งออก
+            export_summary_df = summary_df.copy()
+            export_raw_df = df_report.copy()
+            
+            # 2. แทรกคอลัมน์ "ลำดับ" ไว้ที่ตำแหน่งแรก (index 0)
+            export_summary_df.insert(0, 'ลำดับ', range(1, len(export_summary_df) + 1))
+            export_raw_df.insert(0, 'ลำดับ', range(1, len(export_raw_df) + 1))
+            
+            # 3. บันทึกลง Excel
+            output_excel = io.BytesIO()
+            with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
+                export_summary_df.to_excel(writer, index=False, sheet_name='สรุปรายงาน_สจ21')
+                export_raw_df.to_excel(writer, index=False, sheet_name='ข้อมูลดิบ')
+                
+            st.download_button("📥 ดาวน์โหลด Excel", data=output_excel.getvalue(), file_name=f"Report_Sj21_{report_month}.xlsx")
+            
+        with col_btn2:
+            try:
+                pdf_bytes = generate_pdf()
+                # เปลี่ยนชื่อไฟล์ดาวน์โหลดเป็น Telepsychiatry ด้วย
+                date_str_file = report_date.strftime("%Y-%m-%d")
+                st.download_button("📄 ดาวน์โหลด PDF (พร้อมพิมพ์)", data=pdf_bytes, file_name=f"Report_Telepsychiatry_{date_str_file}.pdf", mime="application/pdf")
+            except Exception as e:
+                st.error(f"เกิดข้อผิดพลาดในการสร้าง PDF: {e}")
+                
+    else:
+        st.info(f"ไม่มีข้อมูลการรับบริการในเดือน **{report_month} {report_year}** ครับ")
