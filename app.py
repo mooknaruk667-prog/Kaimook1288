@@ -320,7 +320,7 @@ if df is not None:
                 # TAB 1: ระบบรายงาน PDF
                 # ------------------------------------------
                 with tab_pdf:
-                    problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
+                    problem_text = st.text_area("✍️️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                     suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
                     
                     st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัดแล้ว / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
@@ -396,13 +396,20 @@ if df is not None:
                                 </tr>"""
 
                             st.markdown("2️⃣ **กำลังประมวลผลสถิติและวาดกราฟสรุป...**")
-                            old_cases = edited_df[edited_df['สถานะ'] == 'รายเก่า']
-                            new_cases = edited_df[edited_df['สถานะ'] == 'รายใหม่']
-                            old_m = len(old_cases[old_cases['เพศ'] == 'ชาย'])
-                            old_f = len(old_cases[old_cases['เพศ'] == 'หญิง'])
-                            new_m = len(new_cases[new_cases['เพศ'] == 'ชาย'])
-                            new_f = len(new_cases[new_cases['เพศ'] == 'หญิง'])
+                            
+                            # 🔥 นับยอดและแยกเพศ (เก่า, ใหม่, ใกล้พ้นโทษ)
+                            old_cases = edited_df[edited_df['สถานะ'].astype(str).str.strip() == 'รายเก่า']
+                            new_cases = edited_df[edited_df['สถานะ'].astype(str).str.strip() == 'รายใหม่']
+                            near_release_cases = edited_df[edited_df['สถานะ'].astype(str).str.strip() == 'ใกล้พ้นโทษ']
+                            
+                            old_m = len(old_cases[old_cases['เพศ'].astype(str).str.strip() == 'ชาย'])
+                            old_f = len(old_cases[old_cases['เพศ'].astype(str).str.strip() == 'หญิง'])
+                            new_m = len(new_cases[new_cases['เพศ'].astype(str).str.strip() == 'ชาย'])
+                            new_f = len(new_cases[new_cases['เพศ'].astype(str).str.strip() == 'หญิง'])
+                            nr_m = len(near_release_cases[near_release_cases['เพศ'].astype(str).str.strip() == 'ชาย'])
+                            nr_f = len(near_release_cases[near_release_cases['เพศ'].astype(str).str.strip() == 'หญิง'])
 
+                            # กราฟ Dx (PDF)
                             dx_counts = edited_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -537,7 +544,8 @@ if df is not None:
                                             <h3>สรุปสถานะผู้ป่วย</h3>
                                             <p style="margin: 0 0 5px 0; font-size: 9pt;">
                                                 <strong>ผู้ป่วยรายเก่า:</strong> {len(old_cases)} ราย (ช {old_m}, ญ {old_f})<br>
-                                                <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})
+                                                <strong>ผู้ป่วยรายใหม่:</strong> {len(new_cases)} ราย (ช {new_m}, ญ {new_f})<br>
+                                                <strong>ใกล้พ้นโทษ:</strong> {len(near_release_cases)} ราย (ช {nr_m}, ญ {nr_f})
                                             </p>
                                         </td>
                                         <td class="summary-box" style="text-align: center;"><h3>สรุปการวินิจฉัยโรค</h3>{chart_img_tag}</td>
