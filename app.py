@@ -183,15 +183,18 @@ if df is not None:
         unique_doctors = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['แพทย์'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         unique_statuses = ["ทั้งหมด"] + sorted(list(set([str(d).strip() for d in df['สถานะ'].unique() if pd.notna(d) and str(d).lower() != 'nan'])))
         
-        col_filter1, col_filter2, col_filter3 = st.columns(3)
+        # 🔥 แก้ไขแบ่งเป็น 4 คอลัมน์เพื่อใส่ตัวกรองสี
+        col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
         with col_filter1:
-            selected_dates = st.multiselect("📅 เลือกวันที่ (เลือกได้มากกว่า 1):", options=unique_dates, default=["ทั้งหมด"])
+            selected_dates = st.multiselect("📅 เลือกวันที่:", options=unique_dates, default=["ทั้งหมด"])
         with col_filter2:
-            selected_doctors = st.multiselect("🩺 เลือกแพทย์ผู้ตรวจ:", options=unique_doctors, default=["ทั้งหมด"])
+            selected_doctors = st.multiselect("🩺 เลือกแพทย์:", options=unique_doctors, default=["ทั้งหมด"])
         with col_filter3:
             selected_statuses = st.multiselect("📌 เลือกสถานะผู้ป่วย:", options=unique_statuses, default=["ทั้งหมด"])
+        with col_filter4:
+            selected_colors = st.multiselect("🎨 เลือกระดับสี:", options=["ทั้งหมด", "🔴 แดง", "🟠 ส้ม", "🟡 เหลือง", "🟢 เขียว", "⚪ ไม่มีข้อมูล"], default=["ทั้งหมด"])
             
-        if not selected_dates or not selected_doctors or not selected_statuses:
+        if not selected_dates or not selected_doctors or not selected_statuses or not selected_colors:
             st.warning("⚠️ กรุณาเลือกตัวกรองอย่างน้อย 1 รายการในแต่ละช่อง (หรือเลือก 'ทั้งหมด')")
         else:
             filtered_df = df.copy()
@@ -201,6 +204,26 @@ if df is not None:
                 filtered_df = filtered_df[filtered_df['แพทย์'].astype(str).str.strip().isin(selected_doctors)]
             if "ทั้งหมด" not in selected_statuses:
                 filtered_df = filtered_df[filtered_df['สถานะ'].astype(str).str.strip().isin(selected_statuses)]
+                
+            # 🔥 ระบบกรองข้อมูลตามสี
+            if "ทั้งหมด" not in selected_colors:
+                if 'หน้า' in filtered_df.columns:
+                    mask = pd.Series(False, index=filtered_df.index)
+                    if "🔴 แดง" in selected_colors:
+                        mask |= filtered_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw")
+                    if "🟠 ส้ม" in selected_colors:
+                        mask |= filtered_df['หน้า'].fillna("").astype(str).str.contains("1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P")
+                    if "🟡 เหลือง" in selected_colors:
+                        mask |= filtered_df['หน้า'].fillna("").astype(str).str.contains("1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y")
+                    if "🟢 เขียว" in selected_colors:
+                        mask |= filtered_df['หน้า'].fillna("").astype(str).str.contains("1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B")
+                    if "⚪ ไม่มีข้อมูล" in selected_colors:
+                        has_color = filtered_df['หน้า'].fillna("").astype(str).str.contains("15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw|1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P|1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y|1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B")
+                        mask |= (~has_color)
+                    filtered_df = filtered_df[mask]
+                else:
+                    if "⚪ ไม่มีข้อมูล" not in selected_colors:
+                        filtered_df = filtered_df.iloc[0:0] # ถ้าไม่มีคอลัมน์หน้า และไม่ได้เลือก 'ไม่มีข้อมูล' ให้ตารางว่าง
 
             if len(filtered_df) > 0:
                 if 'นัด' in filtered_df.columns:
@@ -320,7 +343,7 @@ if df is not None:
                 # TAB 1: ระบบรายงาน PDF
                 # ------------------------------------------
                 with tab_pdf:
-                    problem_text = st.text_area("✍️️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
+                    problem_text = st.text_area("✍ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                     suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
                     
                     st.markdown("**📋 Preview ข้อมูล (เรียงตามวันนัดแล้ว / ดับเบิลคลิกแก้ไขข้อมูลได้เลยครับ):**")
@@ -353,7 +376,6 @@ if df is not None:
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # 🔥 เพิ่มแถบแสดงสถานะหมุนโหลดแบบละเอียด สำหรับ PDF
                     if st.button("🚀 สร้างรายงาน PDF", type="primary", key="btn_pdf"):
                         with st.status("⏳ กำลังสร้างรายงาน PDF กรุณารอสักครู่...", expanded=True) as status:
                             st.markdown("1️⃣ **กำลังดึงข้อมูลและจัดรูปแบบตาราง...**")
@@ -397,7 +419,6 @@ if df is not None:
 
                             st.markdown("2️⃣ **กำลังประมวลผลสถิติและวาดกราฟสรุป...**")
                             
-                            # 🔥 นับยอดและแยกเพศ (เก่า, ใหม่, ใกล้พ้นโทษ)
                             old_cases = edited_df[edited_df['สถานะ'].astype(str).str.strip() == 'รายเก่า']
                             new_cases = edited_df[edited_df['สถานะ'].astype(str).str.strip() == 'รายใหม่']
                             near_release_cases = edited_df[edited_df['สถานะ'].astype(str).str.strip() == 'ใกล้พ้นโทษ']
@@ -409,7 +430,6 @@ if df is not None:
                             nr_m = len(near_release_cases[near_release_cases['เพศ'].astype(str).str.strip() == 'ชาย'])
                             nr_f = len(near_release_cases[near_release_cases['เพศ'].astype(str).str.strip() == 'หญิง'])
 
-                            # กราฟ Dx (PDF)
                             dx_counts = edited_df['Dx'].value_counts()
                             chart_img_tag = ""
                             valid_dx = {k: v for k, v in dx_counts.items() if str(k).lower() != 'nan'}
@@ -633,7 +653,6 @@ if df is not None:
                             
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        # 🔥 เพิ่มแถบแสดงสถานะหมุนโหลดแบบละเอียด สำหรับ EXCEL
                         if st.button("🚀 สร้างรายงาน Excel", type="primary", key="btn_excel"):
                             with st.status("⏳ กำลังสร้างไฟล์ Excel กรุณารอสักครู่...", expanded=True) as status:
                                 st.markdown("1️⃣ **กำลังดึงข้อมูลตารางและจัดเรียงลำดับ...**")
@@ -661,6 +680,6 @@ if df is not None:
                             )
 
             else:
-                 st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
+                 st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก หรือไม่พบสีที่ตรงกับเงื่อนไขการค้นหา")
     else:
          st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
