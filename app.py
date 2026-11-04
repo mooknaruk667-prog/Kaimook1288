@@ -150,8 +150,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# URL ของ Google Sheet
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv"
+# 🔥 URL ของ Google Sheet (อัปเดตแบบล็อกเป้าหมายไปที่หน้า "ตอบสจ11" เท่านั้น)
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv&gid=1105708359"
 
 col_title, col_btn = st.columns([3, 1])
 with col_title:
@@ -159,7 +159,7 @@ with col_title:
     st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) เพื่อสุขภาพจิตที่ดี</p>", unsafe_allow_html=True)
 with col_btn:
     st.write("") 
-    st.link_button("📝 เปิดแก้ไขข้อมูลถาวรบน Google Sheet", SHEET_URL.replace("/export?format=csv", "/edit"), type="secondary", use_container_width=True)
+    st.link_button("📝 เปิดแก้ไขข้อมูลถาวรบน Google Sheet", "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/edit#gid=1105708359", type="secondary", use_container_width=True)
 
 # 🔥 เพิ่ม Spinner ตอนโหลดข้อมูลครั้งแรก
 @st.cache_data(ttl=60, show_spinner="⏳ กำลังโหลดและซิงค์ข้อมูลจาก Google Sheet กรุณารอสักครู่...")
@@ -177,7 +177,7 @@ if df is not None:
     # 🔥 1. ล้างอักขระแปลกปลอมและช่องว่างหน้า-หลัง ในชื่อหัวตารางทั้งหมด
     df.columns = df.columns.astype(str).str.strip().str.replace('\u200b', '')
     
-    # 🔥 2. สร้างเกราะป้องกัน KeyError: ตรวจสอบคอลัมน์ที่จำเป็น ถ้าไม่มีให้สร้างคอลัมน์ว่างอัตโนมัติ
+    # 🔥 2. สร้างเกราะป้องกัน KeyError
     required_cols = ['ชื่อ-สกุล', 'เพศ', 'สถานะ', 'Dx', 'อาการปัจจุบัน', 'หน้า', 'ห้อง', 'แพทย์', 'นัด']
     for col in required_cols:
         if col not in df.columns:
