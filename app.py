@@ -174,7 +174,16 @@ def load_data(url):
 df = load_data(SHEET_URL)
 
 if df is not None:
-    target_col = "คอลัมน์ 1"
+    # 🔍 ระบบค้นหาคอลัมน์วันที่อัตโนมัติ
+    if "คอลัมน์ 1" in df.columns:
+        target_col = "คอลัมน์ 1"
+    elif "วันที่" in df.columns:
+        target_col = "วันที่"
+    elif "Date" in df.columns:
+        target_col = "Date"
+    else:
+        # ถ้าไม่เจอชื่อที่คุ้นเคย ให้ดึงคอลัมน์แรกสุดมาใช้โดยอัตโนมัติ
+        target_col = df.columns[0]
     
     if target_col in df.columns:
         df[target_col] = df[target_col].astype(str).str.strip()
@@ -186,7 +195,7 @@ if df is not None:
         # 🔥 แก้ไขแบ่งเป็น 4 คอลัมน์เพื่อใส่ตัวกรองสี
         col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
         with col_filter1:
-            selected_dates = st.multiselect("📅 เลือกวันที่:", options=unique_dates, default=["ทั้งหมด"])
+            selected_dates = st.multiselect(f"📅 เลือกวันที่ ({target_col}):", options=unique_dates, default=["ทั้งหมด"])
         with col_filter2:
             selected_doctors = st.multiselect("🩺 เลือกแพทย์:", options=unique_doctors, default=["ทั้งหมด"])
         with col_filter3:
@@ -223,7 +232,7 @@ if df is not None:
                     filtered_df = filtered_df[mask]
                 else:
                     if "⚪ ไม่มีข้อมูล" not in selected_colors:
-                        filtered_df = filtered_df.iloc[0:0] # ถ้าไม่มีคอลัมน์หน้า และไม่ได้เลือก 'ไม่มีข้อมูล' ให้ตารางว่าง
+                        filtered_df = filtered_df.iloc[0:0] 
 
             if len(filtered_df) > 0:
                 if 'นัด' in filtered_df.columns:
@@ -682,4 +691,4 @@ if df is not None:
             else:
                  st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก หรือไม่พบสีที่ตรงกับเงื่อนไขการค้นหา")
     else:
-         st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์ชื่อ '{target_col}' ในไฟล์ Sheet ของคุณ")
+         st.error(f"❌ เกิดข้อผิดพลาด: ไม่พบคอลัมน์วันที่ในไฟล์ Sheet ของคุณ กรุณาตรวจสอบหัวตารางให้ถูกต้อง")
