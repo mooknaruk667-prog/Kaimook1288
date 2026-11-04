@@ -1,7 +1,6 @@
 streamlit
 pandas
-weasyprint
-openpyxl
-Pillow
+fpdf
+st-gsheets-connection
 matplotlib
-numpy
+xlsxwriter
