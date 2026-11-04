@@ -91,21 +91,24 @@ def generate_excel_with_images(export_df, export_cols):
 # ==========================================
 st.set_page_config(page_title="ระบบ Report ข้อมูลจิตเวช", page_icon="🌿", layout="wide")
 
-st.markdown("""
-<style>
-    .stApp { background-color: #F8FAFC; }
-    h1 {
-        background: -webkit-linear-gradient(45deg, #0284c7, #0d9488);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800 !important;
-        font-family: 'Sarabun', sans-serif;
-    }
-    h2, h3 { color: #1e293b; font-family: 'Sarabun', sans-serif; font-weight: 700; }
-    [data-testid="stMetric"] {
-        background-color: #ffffff; border-radius: 16px; padding: 20px;
-        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e2e8f0; border-left: 6px solid #0ea5e9; 
-    }
-    .stButton>button {
-        background: linear-gradient(135deg, #0ea5e9 0%, #
+# นำการใช้ 3 ฟันหนูออก เพื่อป้องกัน SyntaxError
+css_styles = (
+    "<style>"
+    ".stApp { background-color: #F8FAFC; } "
+    "h1 { background: -webkit-linear-gradient(45deg, #0284c7, #0d9488); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800 !important; font-family: 'Sarabun', sans-serif; } "
+    "h2, h3 { color: #1e293b; font-family: 'Sarabun', sans-serif; font-weight: 700; } "
+    "[data-testid='stMetric'] { background-color: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; border-left: 6px solid #0ea5e9; } "
+    ".stButton>button { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; border-radius: 10px; border: none; padding: 12px 24px; font-weight: 600; } "
+    "</style>"
+)
+st.markdown(css_styles, unsafe_allow_html=True)
+
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc/export?format=csv&gid=1105708359"
+
+col_title, col_btn = st.columns([3, 1])
+with col_title:
+    st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
+    st.markdown("<p style='color:#64748b; font-size:16px; margin-top:-10px; font-weight:500;'>ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel)</p>", unsafe_allow_html=True)
+with col_btn:
+    st.write("") 
+    st.link_button("📝 เปิดแก้ไขข้อมูลบน Google Sheet", "
