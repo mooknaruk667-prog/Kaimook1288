@@ -12,7 +12,9 @@ import matplotlib.font_manager as fm
 
 PROTO = "https" + "://"
 SHEET_ID = "1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc"
-SHEET_URL = f"{PROTO}docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+SHEET_URL = (
+    f"{PROTO}docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+)
 EDIT_URL = f"{PROTO}docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
 FONT_URL = (
     f"{PROTO}github.com/googlefonts/sarabun"
@@ -61,6 +63,28 @@ def extract_gdrive_id(url_str):
     return None
 
 
+def apply_pdpa_mask(df_in):
+    df_out = df_in.copy()
+    if "ชื่อ-สกุล" in df_out.columns:
+        df_out["ชื่อ-สกุล"] = [
+            f"ผู้ป่วยรายที่ {i + 1}" for i in range(len(df_out))
+        ]
+    sensitive_cols = [
+        "คำนำหน้า",
+        "ชื่อเล่น-ฉายา",
+        "เลขที่บัตรประชาชน",
+        "วัน/เดือน/ปี เกิด",
+        "ที่อยู่หลังพันโทษ",
+        "ญาติที่สามารถติดต่อได้",
+        "เบอร์โทรศัพท์ญาติ",
+        "รูป",
+    ]
+    for c in sensitive_cols:
+        if c in df_out.columns:
+            df_out[c] = "*** (ซ่อนข้อมูล) ***"
+    return df_out
+
+
 @st.cache_data(ttl=300)
 def generate_excel_with_images(export_df, export_cols):
     import openpyxl
@@ -95,7 +119,9 @@ def generate_excel_with_images(export_df, export_cols):
                             xl_img.anchor = f"{col_letter}{row_idx}"
                             ws.add_image(xl_img)
                     except Exception:
-                        ws.cell(row=row_idx, column=col_idx).value = "โหลดรูปไม่ได้"
+                        ws.cell(row=row_idx, column=col_idx).value = (
+                            "โหลดรูปไม่ได้"
+                        )
     return buffer.getvalue()
 
 
@@ -143,7 +169,6 @@ def load_data(url):
         raw_df.columns = (
             raw_df.columns.astype(str).str.strip().str.replace("\u200b", "")
         )
-        # หากแถวหัวตารางไม่ได้อยู่บรรทัดแรก ให้ค้นหาแถวที่มีคำว่า ชื่อ-สกุล หรือ สถานะ
         if "ชื่อ-สกุล" not in raw_df.columns and "สถานะ" not in raw_df.columns:
             for i in range(min(10, len(raw_df))):
                 row_vals = [str(v).strip() for v in raw_df.iloc[i].values]
@@ -162,7 +187,21 @@ df = load_data(SHEET_URL)
 if df is not None:
     df.columns = df.columns.astype(str).str.strip().str.replace("\u200b", "")
 
-    for req_col in ["ชื่อ-สกุล", "เพศ", "สถานะ", "Dx", "อาการปัจจุบัน", "หน้า", "ห้อง", "แพทย์", "นัด"]:
+    if "นัดแพทย์" in df.columns and "นัด" not in df.columns:
+        df.rename(columns={"นัดแพทย์": "นัด"}, inplace=True)
+
+    req_cols = [
+        "ชื่อ-สกุล",
+        "เพศ",
+        "สถานะ",
+        "Dx",
+        "อาการปัจจุบัน",
+        "หน้า",
+        "ห้อง",
+        "แพทย์",
+        "นัด",
+    ]
+    for req_col in req_cols:
         if req_col not in df.columns:
             df[req_col] = ""
 
@@ -176,15 +215,18 @@ if df is not None:
     df[target_col] = df[target_col].astype(str).str.strip()
 
     dates_list = [
-        d for d in df[target_col].dropna().unique()
+        d
+        for d in df[target_col].dropna().unique()
         if str(d).strip() != "" and str(d).lower() != "nan"
     ]
     docs_list = [
-        str(d).strip() for d in df["แพทย์"].dropna().unique()
+        str(d).strip()
+        for d in df["แพทย์"].dropna().unique()
         if str(d).strip() != "" and str(d).lower() != "nan"
     ]
     status_list = [
-        str(d).strip() for d in df["สถานะ"].dropna().unique()
+        str(d).strip()
+        for d in df["สถานะ"].dropna().unique()
         if str(d).strip() != "" and str(d).lower() != "nan"
     ]
 
@@ -192,7 +234,12 @@ if df is not None:
     unique_doctors = ["ทั้งหมด"] + sorted(list(set(docs_list)))
     unique_statuses = ["ทั้งหมด"] + sorted(list(set(status_list)))
     color_options = [
-        "ทั้งหมด", "🔴 แดง", "🟠 ส้ม", "🟡 เหลือง", "🟢 เขียว", "⚪ ไม่มีข้อมูล"
+        "ทั้งหมด",
+        "🔴 แดง",
+        "🟠 ส้ม",
+        "🟡 เหลือง",
+        "🟢 เขียว",
+        "⚪ ไม่มีข้อมูล",
     ]
 
     f_col1, f_col2, f_col3, f_col4 = st.columns(4)
@@ -206,26 +253,42 @@ if df is not None:
         )
     with f_col3:
         selected_statuses = st.multiselect(
-            "📌 เลือกสถานะผู้ป่วย:", options=unique_statuses, default=["ทั้งหมด"]
+            "📌 เลือกสถานะผู้ป่วย:",
+            options=unique_statuses,
+            default=["ทั้งหมด"],
         )
     with f_col4:
         selected_colors = st.multiselect(
             "🎨 เลือกระดับสี:", options=color_options, default=["ทั้งหมด"]
         )
 
-    if not (selected_dates and selected_doctors and selected_statuses and selected_colors):
+    has_filters = (
+        selected_dates
+        and selected_doctors
+        and selected_statuses
+        and selected_colors
+    )
+    if not has_filters:
         st.warning("⚠️ กรุณาเลือกตัวกรองอย่างน้อย 1 รายการในแต่ละช่อง")
     else:
         filtered_df = df.copy()
         if "ทั้งหมด" not in selected_dates:
-            filtered_df = filtered_df[filtered_df[target_col].isin(selected_dates)]
+            filtered_df = filtered_df[
+                filtered_df[target_col].isin(selected_dates)
+            ]
         if "ทั้งหมด" not in selected_doctors:
             filtered_df = filtered_df[
-                filtered_df["แพทย์"].astype(str).str.strip().isin(selected_doctors)
+                filtered_df["แพทย์"]
+                .astype(str)
+                .str.strip()
+                .isin(selected_doctors)
             ]
         if "ทั้งหมด" not in selected_statuses:
             filtered_df = filtered_df[
-                filtered_df["สถานะ"].astype(str).str.strip().isin(selected_statuses)
+                filtered_df["สถานะ"]
+                .astype(str)
+                .str.strip()
+                .isin(selected_statuses)
             ]
 
         if "ทั้งหมด" not in selected_colors:
@@ -251,16 +314,23 @@ if df is not None:
 
         if len(filtered_df) > 0:
             filtered_df["นัด"] = filtered_df["นัด"].fillna("")
-            filtered_df = filtered_df.sort_values(by="นัด").reset_index(drop=True)
+            filtered_df = filtered_df.sort_values(by="นัด").reset_index(
+                drop=True
+            )
 
             st.markdown("---")
 
             total_p = len(filtered_df)
             new_p = len(
-                filtered_df[filtered_df["สถานะ"].astype(str).str.strip() == "รายใหม่"]
+                filtered_df[
+                    filtered_df["สถานะ"].astype(str).str.strip() == "รายใหม่"
+                ]
             )
             red_p = sum(
-                filtered_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False)
+                filtered_df["หน้า"]
+                .fillna("")
+                .astype(str)
+                .str.contains(ID_RED, na=False)
             )
 
             filtered_df["เพศ"] = filtered_df["เพศ"].astype(str).str.strip()
@@ -273,7 +343,9 @@ if df is not None:
             d_col1, d_col2, d_col3, d_col4 = st.columns([1, 1.2, 1.2, 1.5])
             d_col1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_p} ราย")
             d_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_p} ราย ({new_pct:.1f}%)")
-            d_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_p} ราย ({red_pct:.1f}%)")
+            d_col3.metric(
+                "🚨 เคสเฝ้าระวัง (แดง)", f"{red_p} ราย ({red_pct:.1f}%)"
+            )
 
             with d_col4:
                 st.caption("🚻 สัดส่วนเพศ (Gender)")
@@ -309,6 +381,29 @@ if df is not None:
 
             st.markdown("---")
 
+            # ------------------------------------------
+            # 🔒 แถบควบคุมความเป็นส่วนตัวสำหรับการนำเสนอในที่ประชุม
+            # ------------------------------------------
+            p_col1, p_col2 = st.columns(2)
+            with p_col1:
+                show_table = st.toggle(
+                    "👁️ แสดงตารางข้อมูลผู้ป่วยบนหน้าจอ",
+                    value=True,
+                    help="ปิดสวิตช์นี้เพื่อซ่อนตารางทั้งหมดขณะนำเสนอในที่ประชุม",
+                )
+            with p_col2:
+                mask_pii = st.toggle(
+                    "🔒 ปิดบังชื่อและข้อมูลส่วนบุคคล (PDPA Mode)",
+                    value=False,
+                    help="เปลี่ยนชื่อ-สกุลเป็นรหัสและซ่อนข้อมูลส่วนตัวทั้งบนจอและในไฟล์",
+                )
+
+            working_df = (
+                apply_pdpa_mask(filtered_df)
+                if mask_pii
+                else filtered_df.copy()
+            )
+
             def get_direct_url_preview(url):
                 gid = extract_gdrive_id(url)
                 if gid:
@@ -316,25 +411,39 @@ if df is not None:
                 return ""
 
             def highlight_and_group(subset_df):
-                styles = pd.DataFrame("", index=subset_df.index, columns=subset_df.columns)
+                styles = pd.DataFrame(
+                    "", index=subset_df.index, columns=subset_df.columns
+                )
                 if "นัด" in subset_df.columns:
                     v_dates = [
-                        d for d in subset_df["นัด"].unique()
+                        d
+                        for d in subset_df["นัด"].unique()
                         if str(d).strip() != "" and str(d).lower() != "nan"
                     ]
-                    p_colors = ["#E0F2F1", "#FFF9C4", "#F3E5F5", "#E3F2FD", "#FBE9E7"]
+                    p_colors = [
+                        "#E0F2F1",
+                        "#FFF9C4",
+                        "#F3E5F5",
+                        "#E3F2FD",
+                        "#FBE9E7",
+                    ]
                     c_map = {
-                        d: p_colors[i % len(p_colors)] for i, d in enumerate(v_dates)
+                        d: p_colors[i % len(p_colors)]
+                        for i, d in enumerate(v_dates)
                     }
                     for idx, r in subset_df.iterrows():
                         ad = r.get("นัด", "")
                         if ad in c_map:
                             styles.loc[idx, "นัด"] = (
-                                f"background-color: {c_map[ad]}; font-weight: 600;"
+                                f"background-color: {c_map[ad]}; "
+                                "font-weight: 600;"
                             )
                 if "หน้า" in subset_df.columns:
                     r_mask = (
-                        subset_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False)
+                        subset_df["หน้า"]
+                        .fillna("")
+                        .astype(str)
+                        .str.contains(ID_RED, na=False)
                     )
                     for col in styles.columns:
                         styles.loc[r_mask, col] = "background-color: #FCE4EC;"
@@ -354,46 +463,77 @@ if df is not None:
                     placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...",
                 )
 
-                st.markdown("**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขข้อมูลในตารางได้):**")
                 preview_cols = [
-                    "ชื่อ-สกุล", "สถานะ", "Dx", "อาการปัจจุบัน",
-                    "หน้า", "นัด", "ห้อง", "แพทย์"
+                    "ชื่อ-สกุล",
+                    "สถานะ",
+                    "Dx",
+                    "อาการปัจจุบัน",
+                    "หน้า",
+                    "นัด",
+                    "ห้อง",
+                    "แพทย์",
                 ]
-                avail_cols = [c for c in preview_cols if c in filtered_df.columns]
+                avail_cols = [
+                    c for c in preview_cols if c in working_df.columns
+                ]
 
-                pdf_display_df = filtered_df[avail_cols].copy().fillna("")
-                if "หน้า" in pdf_display_df.columns:
-                    pdf_display_df["หน้า"] = pdf_display_df["หน้า"].apply(
-                        get_direct_url_preview
+                edited_df = working_df.copy()
+
+                if show_table:
+                    st.markdown(
+                        "**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขในตารางได้):**"
+                    )
+                    pdf_display_df = working_df[avail_cols].copy().fillna("")
+                    if "หน้า" in pdf_display_df.columns:
+                        pdf_display_df["หน้า"] = pdf_display_df["หน้า"].apply(
+                            get_direct_url_preview
+                        )
+
+                    edited_pdf_display = st.data_editor(
+                        pdf_display_df.style.apply(
+                            highlight_and_group, axis=None
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                        column_order=avail_cols,
+                        key="pdf_editor_table",
+                        column_config={
+                            "หน้า": st.column_config.ImageColumn(
+                                "ระดับ (รูปภาพ)"
+                            ),
+                            "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
+                            "ห้อง": st.column_config.TextColumn("ห้อง"),
+                        },
                     )
 
-                edited_pdf_display = st.data_editor(
-                    pdf_display_df.style.apply(highlight_and_group, axis=None),
-                    use_container_width=True,
-                    hide_index=True,
-                    column_order=avail_cols,
-                    key="pdf_editor_table",
-                    column_config={
-                        "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
-                        "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
-                        "ห้อง": st.column_config.TextColumn("ห้อง"),
-                    },
-                )
-
-                edited_df = filtered_df.copy()
-                for col in avail_cols:
-                    if col in edited_pdf_display.columns:
-                        edited_df[col] = edited_pdf_display[col]
+                    for col in avail_cols:
+                        if col in edited_pdf_display.columns:
+                            edited_df[col] = edited_pdf_display[col]
+                else:
+                    st.info(
+                        "🔒 ซ่อนตารางรายชื่อผู้ป่วยอยู่ (โหมดนำเสนอที่ประชุม) "
+                        "— คุณยังสามารถกดปุ่มสร้างรายงาน PDF ด้านล่างได้ตามปกติ"
+                    )
 
                 if st.button("🚀 สร้างรายงาน PDF", type="primary", key="btn_pdf"):
-                    with st.status("⏳ กำลังสร้างรายงาน PDF...", expanded=True) as status:
+                    with st.status(
+                        "⏳ กำลังสร้างรายงาน PDF...", expanded=True
+                    ) as status:
                         st.markdown("1️⃣ **กำลังจัดรูปแบบตาราง...**")
                         rows_list = []
-                        for r_num, (_, row) in enumerate(edited_df.iterrows(), start=1):
-                            name = str(row.get("ชื่อ-สกุล", "")).replace("nan", "")
-                            st_txt = str(row.get("สถานะ", "")).replace("nan", "")
+                        for r_num, (_, row) in enumerate(
+                            edited_df.iterrows(), start=1
+                        ):
+                            name = str(row.get("ชื่อ-สกุล", "")).replace(
+                                "nan", ""
+                            )
+                            st_txt = str(row.get("สถานะ", "")).replace(
+                                "nan", ""
+                            )
                             dx = str(row.get("Dx", "")).replace("nan", "")
-                            symp = str(row.get("อาการปัจจุบัน", "")).replace("nan", "")
+                            symp = str(row.get("อาการปัจจุบัน", "")).replace(
+                                "nan", ""
+                            )
                             room = str(row.get("ห้อง", "")).replace("nan", "")
                             appt = str(row.get("นัด", "")).replace("nan", "")
                             doc = str(row.get("แพทย์", "")).replace("nan", "")
@@ -403,24 +543,28 @@ if df is not None:
                                 u = f"{PROTO}drive.google.com/uc?id={gid}"
                                 img_t = (
                                     f"<img src='{u}' style='width:26px;"
-                                    "height:26px;object-fit:cover;border-radius:4px;'/>"
+                                    "height:26px;object-fit:cover;"
+                                    "border-radius:4px;'/>"
                                 )
                             else:
                                 img_t = "-"
 
-                            row_html = "".join([
-                                "<tr>",
-                                f"<td style='text-align:center;'>{r_num}</td>",
-                                f"<td style='font-weight:bold;color:#1e293b;'>{name}</td>",
-                                f"<td>{st_txt}</td>",
-                                f"<td>{dx}</td>",
-                                f"<td>{symp}</td>",
-                                f"<td style='text-align:center;'>{img_t}</td>",
-                                f"<td style='color:#0369a1;'>{appt}</td>",
-                                f"<td style='text-align:center;'>{room}</td>",
-                                f"<td>{doc}</td>",
-                                "</tr>",
-                            ])
+                            row_html = "".join(
+                                [
+                                    "<tr>",
+                                    f"<td style='text-align:center;'>{r_num}</td>",
+                                    "<td style='font-weight:bold;color:#1e293b;'>",
+                                    f"{name}</td>",
+                                    f"<td>{st_txt}</td>",
+                                    f"<td>{dx}</td>",
+                                    f"<td>{symp}</td>",
+                                    f"<td style='text-align:center;'>{img_t}</td>",
+                                    f"<td style='color:#0369a1;'>{appt}</td>",
+                                    f"<td style='text-align:center;'>{room}</td>",
+                                    f"<td>{doc}</td>",
+                                    "</tr>",
+                                ]
+                            )
                             rows_list.append(row_html)
                         html_rows = "".join(rows_list)
 
@@ -441,7 +585,8 @@ if df is not None:
 
                         dx_counts = edited_df["Dx"].value_counts()
                         valid_dx = {
-                            k: v for k, v in dx_counts.items()
+                            k: v
+                            for k, v in dx_counts.items()
                             if str(k).strip() != "" and str(k).lower() != "nan"
                         }
                         if valid_dx:
@@ -458,19 +603,25 @@ if df is not None:
                                 radius=0.55,
                             )
                             kw = dict(
-                                arrowprops=dict(arrowstyle="-", color="#64748b", lw=1.0),
+                                arrowprops=dict(
+                                    arrowstyle="-", color="#64748b", lw=1.0
+                                ),
                                 zorder=0,
                                 va="center",
                             )
                             for i, p in enumerate(wedges1):
                                 ang = (p.theta2 - p.theta1) / 2.0 + p.theta1
-                                safe_ang = ang + 1.0 if abs(ang % 180) < 1 else ang
+                                safe_ang = (
+                                    ang + 1.0 if abs(ang % 180) < 1 else ang
+                                )
                                 y = np.sin(np.deg2rad(ang))
                                 x = np.cos(np.deg2rad(ang))
                                 x_sign = -1 if x < 0 else 1
                                 ha = "right" if x_sign == -1 else "left"
                                 conn = f"angle,angleA=0,angleB={safe_ang}"
-                                kw["arrowprops"].update({"connectionstyle": conn})
+                                kw["arrowprops"].update(
+                                    {"connectionstyle": conn}
+                                )
                                 ax1.annotate(
                                     labels1[i],
                                     xy=(x * 0.55, y * 0.55),
@@ -484,10 +635,15 @@ if df is not None:
                             ax1.axis("equal")
                             buf1 = io.BytesIO()
                             plt.savefig(
-                                buf1, format="png", bbox_inches="tight",
-                                transparent=True, dpi=120
+                                buf1,
+                                format="png",
+                                bbox_inches="tight",
+                                transparent=True,
+                                dpi=120,
                             )
-                            b64_1 = base64.b64encode(buf1.getvalue()).decode("utf-8")
+                            b64_1 = base64.b64encode(buf1.getvalue()).decode(
+                                "utf-8"
+                            )
                             chart_img_tag = (
                                 f"<img src='data:image/png;base64,{b64_1}' "
                                 "style='width:100%;max-width:180px;"
@@ -495,13 +651,24 @@ if df is not None:
                             )
                             plt.close(fig1)
                         else:
-                            chart_img_tag = "<p style='font-size:9pt;'>ไม่มีข้อมูล Dx</p>"
+                            chart_img_tag = (
+                                "<p style='font-size:9pt;'>ไม่มีข้อมูล Dx</p>"
+                            )
 
                         c_map = {
-                            "แดง": "#F44336", "ส้ม": "#FF9800",
-                            "เหลือง": "#FACC15", "เขียว": "#4CAF50", "เทา": "#9E9E9E"
+                            "แดง": "#F44336",
+                            "ส้ม": "#FF9800",
+                            "เหลือง": "#FACC15",
+                            "เขียว": "#4CAF50",
+                            "เทา": "#9E9E9E",
                         }
-                        lvl_cnt = {"แดง": 0, "ส้ม": 0, "เหลือง": 0, "เขียว": 0, "เทา": 0}
+                        lvl_cnt = {
+                            "แดง": 0,
+                            "ส้ม": 0,
+                            "เหลือง": 0,
+                            "เขียว": 0,
+                            "เทา": 0,
+                        }
                         for f_url in edited_df["หน้า"]:
                             fs = str(f_url)
                             if ID_RED in fs:
@@ -522,18 +689,29 @@ if df is not None:
                             tot_lvl = sum(act_lvl.values())
                             ax2.pie(
                                 act_lvl.values(),
-                                autopct=lambda p: f"{int(round(p * tot_lvl / 100))} ({p:.1f}%)",
+                                autopct=lambda p: (
+                                    f"{int(round(p * tot_lvl / 100))} "
+                                    f"({p:.1f}%)"
+                                ),
                                 startangle=90,
                                 colors=cols2,
-                                textprops={"fontsize": 8, "fontfamily": THAI_FONT_NAME},
+                                textprops={
+                                    "fontsize": 8,
+                                    "fontfamily": THAI_FONT_NAME,
+                                },
                             )
                             ax2.axis("equal")
                             buf2 = io.BytesIO()
                             plt.savefig(
-                                buf2, format="png", bbox_inches="tight",
-                                transparent=True, dpi=120
+                                buf2,
+                                format="png",
+                                bbox_inches="tight",
+                                transparent=True,
+                                dpi=120,
                             )
-                            b64_2 = base64.b64encode(buf2.getvalue()).decode("utf-8")
+                            b64_2 = base64.b64encode(buf2.getvalue()).decode(
+                                "utf-8"
+                            )
                             level_chart_img_tag = (
                                 f"<img src='data:image/png;base64,{b64_2}' "
                                 "style='width:100%;max-width:130px;"
@@ -541,7 +719,9 @@ if df is not None:
                             )
                             plt.close(fig2)
                         else:
-                            level_chart_img_tag = "<p style='font-size:9pt;'>ไม่มีข้อมูล</p>"
+                            level_chart_img_tag = (
+                                "<p style='font-size:9pt;'>ไม่มีข้อมูล</p>"
+                            )
 
                         logo_src = f"{PROTO}drive.google.com/uc?id={ID_LOGO}"
                         if "ทั้งหมด" in selected_dates:
@@ -552,23 +732,31 @@ if df is not None:
 
                         extra_boxes = []
                         if problem_text.strip():
-                            extra_boxes.extend([
-                                "<div style='background-color:#fef2f2;",
-                                "border-left:5px solid #ef4444;padding:12px;margin-top:15px;'>",
-                                "<h3 style='color:#b91c1c;margin-top:0;font-size:10pt;'>",
-                                "ปัญหา / อุปสรรค</h3>",
-                                "<p style='margin:0;font-size:9pt;white-space:pre-line;'>",
-                                f"{problem_text}</p></div>",
-                            ])
+                            extra_boxes.extend(
+                                [
+                                    "<div style='background-color:#fef2f2;",
+                                    "border-left:5px solid #ef4444;",
+                                    "padding:12px;margin-top:15px;'>",
+                                    "<h3 style='color:#b91c1c;margin-top:0;",
+                                    "font-size:10pt;'>ปัญหา / อุปสรรค</h3>",
+                                    "<p style='margin:0;font-size:9pt;",
+                                    "white-space:pre-line;'>",
+                                    f"{problem_text}</p></div>",
+                                ]
+                            )
                         if suggestion_text.strip():
-                            extra_boxes.extend([
-                                "<div style='background-color:#f0fdf4;",
-                                "border-left:5px solid #22c55e;padding:12px;margin-top:15px;'>",
-                                "<h3 style='color:#15803d;margin-top:0;font-size:10pt;'>",
-                                "ข้อเสนอแนะ</h3>",
-                                "<p style='margin:0;font-size:9pt;white-space:pre-line;'>",
-                                f"{suggestion_text}</p></div>",
-                            ])
+                            extra_boxes.extend(
+                                [
+                                    "<div style='background-color:#f0fdf4;",
+                                    "border-left:5px solid #22c55e;",
+                                    "padding:12px;margin-top:15px;'>",
+                                    "<h3 style='color:#15803d;margin-top:0;",
+                                    "font-size:10pt;'>ข้อเสนอแนะ</h3>",
+                                    "<p style='margin:0;font-size:9pt;",
+                                    "white-space:pre-line;'>",
+                                    f"{suggestion_text}</p></div>",
+                                ]
+                            )
                         bottom_sections = "".join(extra_boxes)
 
                         st.markdown("3️⃣ **กำลังสร้างไฟล์ PDF...**")
@@ -577,44 +765,60 @@ if df is not None:
                             "?family=Sarabun:wght@400;600;700&display=swap"
                         )
                         html_parts = [
-                            "<!DOCTYPE html><html lang='th'><head><meta charset='UTF-8'>",
+                            "<!DOCTYPE html><html lang='th'><head>",
+                            "<meta charset='UTF-8'>",
                             f"<link href='{font_css}' rel='stylesheet'>",
                             "<style>",
-                            "@page { size: A4 portrait; margin: 10mm 10mm 15mm 10mm; }",
-                            "body { font-family: 'Sarabun', sans-serif; font-size: 11pt; ",
-                            "color: #334155; line-height: 1.5; }",
-                            ".header-table { width: 100%; border-collapse: collapse; ",
-                            "margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; }",
-                            ".header-table td { border: none; padding-bottom: 10px; ",
-                            "vertical-align: bottom; }",
-                            ".header-logo { width: 130px; text-align: center; }",
+                            "@page { size: A4 portrait; ",
+                            "margin: 10mm 10mm 15mm 10mm; }",
+                            "body { font-family: 'Sarabun', sans-serif; ",
+                            "font-size: 11pt; color: #334155; ",
+                            "line-height: 1.5; }",
+                            ".header-table { width: 100%; ",
+                            "border-collapse: collapse; margin-bottom: 20px; ",
+                            "border-bottom: 2px solid #cbd5e1; }",
+                            ".header-table td { border: none; ",
+                            "padding-bottom: 10px; vertical-align: bottom; }",
+                            ".header-logo { width: 130px; ",
+                            "text-align: center; }",
                             ".header-logo img { width: 55px; height: auto; }",
-                            ".header-logo p { font-size: 9pt; font-weight: bold; ",
-                            "margin-top: 5px; margin-bottom: 0; }",
-                            "h1 { text-align: center; margin: 0; font-size: 12pt; }",
-                            ".summary-container { width: 100%; border-collapse: separate; ",
-                            "border-spacing: 8px 0; margin-bottom: 20px; table-layout: fixed; }",
+                            ".header-logo p { font-size: 9pt; ",
+                            "font-weight: bold; margin-top: 5px; ",
+                            "margin-bottom: 0; }",
+                            "h1 { text-align: center; margin: 0; ",
+                            "font-size: 12pt; }",
+                            ".summary-container { width: 100%; ",
+                            "border-collapse: separate; ",
+                            "border-spacing: 8px 0; margin-bottom: 20px; ",
+                            "table-layout: fixed; }",
                             ".summary-box { background-color: #f8fafc; ",
-                            "border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; ",
-                            "vertical-align: top; width: 33.33%; }",
-                            ".summary-box h3 { margin-top: 0; color: #0369a1; ",
-                            "font-size: 10pt; border-bottom: 1px solid #cbd5e1; ",
+                            "border: 1px solid #e2e8f0; border-radius: 8px; ",
+                            "padding: 10px; vertical-align: top; ",
+                            "width: 33.33%; }",
+                            ".summary-box h3 { margin-top: 0; ",
+                            "color: #0369a1; font-size: 10pt; ",
+                            "border-bottom: 1px solid #cbd5e1; ",
                             "padding-bottom: 6px; }",
-                            ".data-table { width: 100%; border-collapse: collapse; ",
-                            "margin-top: 10px; table-layout: auto; }",
-                            ".data-table th, .data-table td { padding: 6px 4px; ",
-                            "vertical-align: middle; font-size: 9pt; ",
+                            ".data-table { width: 100%; ",
+                            "border-collapse: collapse; margin-top: 10px; ",
+                            "table-layout: auto; }",
+                            ".data-table th, .data-table td { ",
+                            "padding: 6px 4px; vertical-align: middle; ",
+                            "font-size: 9pt; ",
                             "border-bottom: 1px solid #e2e8f0; }",
-                            ".data-table th { background-color: #1e293b; color: #ffffff; ",
-                            "text-align: center; font-weight: 600; }",
-                            ".data-table tr:nth-child(even) { background-color: #f8fafc; }",
-                            ".signature-section { margin-top: 30px; text-align: left; ",
-                            "page-break-inside: avoid; }",
+                            ".data-table th { background-color: #1e293b; ",
+                            "color: #ffffff; text-align: center; ",
+                            "font-weight: 600; }",
+                            ".data-table tr:nth-child(even) { ",
+                            "background-color: #f8fafc; }",
+                            ".signature-section { margin-top: 30px; ",
+                            "text-align: left; page-break-inside: avoid; }",
                             "</style></head><body>",
                             "<table class='header-table'><tr>",
                             f"<td class='header-logo'><img src='{logo_src}'>",
                             "<p>สถานพยาบาลเรือนจำ<br>จังหวัดบุรีรัมย์</p></td>",
-                            f"<td style='vertical-align:middle;'><h1>{title_text}</h1></td>",
+                            "<td style='vertical-align:middle;'>",
+                            f"<h1>{title_text}</h1></td>",
                             "<td style='width:130px;'></td></tr></table>",
                             "<table class='summary-container'><tr>",
                             "<td class='summary-box' style='text-align:left;'>",
@@ -626,10 +830,13 @@ if df is not None:
                             f"(ช {new_m}, ญ {new_f})<br>",
                             f"<strong>ใกล้พ้นโทษ:</strong> {len(nr_c)} ราย ",
                             f"(ช {nr_m}, ญ {nr_f})</p></td>",
-                            "<td class='summary-box' style='text-align:center;'>",
+                            "<td class='summary-box' ",
+                            "style='text-align:center;'>",
                             f"<h3>สรุปการวินิจฉัยโรค</h3>{chart_img_tag}</td>",
-                            "<td class='summary-box' style='text-align:center;'>",
-                            f"<h3>สรุปเคสตามระดับสี</h3>{level_chart_img_tag}</td>",
+                            "<td class='summary-box' ",
+                            "style='text-align:center;'>",
+                            "<h3>สรุปเคสตามระดับสี</h3>",
+                            f"{level_chart_img_tag}</td>",
                             "</tr></table>",
                             "<table class='data-table'><thead><tr>",
                             "<th style='width:4%;'>ที่</th>",
@@ -646,8 +853,10 @@ if df is not None:
                             "<div class='signature-section'>",
                             "<p style='margin-bottom:20px;font-size:11pt;'>",
                             "เรียน ผู้บัญชาการเรือนจำฯ<br>",
-                            "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- เพื่อโปรดทราบ</p>",
-                            "<br><br><div style='display:inline-block;text-align:center;'>",
+                            "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
+                            "- เพื่อโปรดทราบ</p>",
+                            "<br><br><div style='display:inline-block;",
+                            "text-align:center;'>",
                             "<p style='margin:0;font-size:9pt;'>",
                             "(นางสาวเดือนนภา เบี้ยชาติไทย)</p>",
                             "<p style='margin:5px 0 0 0;font-size:9pt;'>",
@@ -664,8 +873,12 @@ if df is not None:
                     if "ทั้งหมด" in selected_dates:
                         f_date = "All_Dates"
                     else:
-                        f_date = "_".join([d.replace("/", "-") for d in selected_dates])
-                    st.success(f"🎉 พร้อมดาวน์โหลดแล้ว! ({len(filtered_df)} รายการ)")
+                        f_date = "_".join(
+                            [d.replace("/", "-") for d in selected_dates]
+                        )
+                    st.success(
+                        f"🎉 พร้อมดาวน์โหลดแล้ว! ({len(edited_df)} รายการ)"
+                    )
                     st.download_button(
                         label="📥 ดาวน์โหลดไฟล์ PDF",
                         data=pdf_bytes,
@@ -675,10 +888,17 @@ if df is not None:
 
             with tab_excel:
                 st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
-                all_cols = filtered_df.columns.tolist()
+                all_cols = working_df.columns.tolist()
                 pref_cols = [
-                    "ชื่อ-สกุล", "เพศ", "สถานะ", "Dx", "อาการปัจจุบัน",
-                    "หน้า", "ห้อง", "แพทย์", "นัด"
+                    "ชื่อ-สกุล",
+                    "เพศ",
+                    "สถานะ",
+                    "Dx",
+                    "อาการปัจจุบัน",
+                    "หน้า",
+                    "ห้อง",
+                    "แพทย์",
+                    "นัด",
                 ]
                 def_cols = [c for c in pref_cols if c in all_cols]
                 selected_export_cols = st.multiselect(
@@ -688,58 +908,17 @@ if df is not None:
                 )
 
                 if selected_export_cols:
-                    preview_ex_df = filtered_df[selected_export_cols].copy().fillna("")
-                    if "หน้า" in preview_ex_df.columns:
-                        preview_ex_df["หน้า"] = preview_ex_df["หน้า"].apply(
-                            get_direct_url_preview
-                        )
-                        edited_ex_df = st.data_editor(
-                            preview_ex_df.style.apply(highlight_and_group, axis=None),
-                            use_container_width=True,
-                            hide_index=True,
-                            key="excel_editor_img",
-                            column_config={
-                                "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)")
-                            },
-                        )
-                    else:
-                        edited_ex_df = st.data_editor(
-                            preview_ex_df.style.apply(highlight_and_group, axis=None),
-                            use_container_width=True,
-                            hide_index=True,
-                            key="excel_editor_no_img",
-                        )
+                    edited_ex_df = (
+                        working_df[selected_export_cols].copy().fillna("")
+                    )
 
-                    if st.button("🚀 สร้างรายงาน Excel", type="primary", key="btn_ex"):
-                        with st.status("⏳ กำลังสร้างไฟล์ Excel...", expanded=True) as status:
-                            ex_final = edited_ex_df.copy()
-                            if "ลำดับ" in ex_final.columns:
-                                ex_final = ex_final.drop(columns=["ลำดับ"])
-                            ex_final.insert(0, "ลำดับ", range(1, len(ex_final) + 1))
-                            cols_final = ["ลำดับ"] + [
-                                c for c in selected_export_cols if c != "ลำดับ"
-                            ]
-                            excel_bytes = generate_excel_with_images(ex_final, cols_final)
-                            status.update(
-                                label="✅ เตรียมไฟล์ Excel สำเร็จ!",
-                                state="complete",
-                                expanded=False,
+                    if show_table:
+                        preview_ex_df = edited_ex_df.copy()
+                        if "หน้า" in preview_ex_df.columns:
+                            preview_ex_df["หน้า"] = preview_ex_df["หน้า"].apply(
+                                get_direct_url_preview
                             )
-
-                        if "ทั้งหมด" in selected_dates:
-                            f_date = "All_Dates"
-                        else:
-                            f_date = "_".join([d.replace("/", "-") for d in selected_dates])
-                        xlsx_mime = (
-                            "application/vnd.openxmlformats-officedocument"
-                            ".spreadsheetml.sheet"
-                        )
-                        st.download_button(
-                            label="📥 ดาวน์โหลดไฟล์ Excel",
-                            data=excel_bytes,
-                            file_name=f"Psychiatry_report_{f_date}.xlsx",
-                            mime=xlsx_mime,
-                            type="primary",
-                        )
-        else:
-            st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
+                            edited_ex_df = st.data_editor(
+                                preview_ex_df.style.apply(
+                                    highlight_and_group, axis=None
+                                ),
