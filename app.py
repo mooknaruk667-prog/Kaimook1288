@@ -922,3 +922,72 @@ if df is not None:
                                 preview_ex_df.style.apply(
                                     highlight_and_group, axis=None
                                 ),
+                                use_container_width=True,
+                                hide_index=True,
+                                key="excel_editor_img",
+                                column_config={
+                                    "หน้า": st.column_config.ImageColumn(
+                                        "ระดับ (รูปภาพ)"
+                                    )
+                                },
+                            )
+                        else:
+                            edited_ex_df = st.data_editor(
+                                preview_ex_df.style.apply(
+                                    highlight_and_group, axis=None
+                                ),
+                                use_container_width=True,
+                                hide_index=True,
+                                key="excel_editor_no_img",
+                            )
+                    else:
+                        st.info(
+                            "🔒 ซ่อนตารางรายชื่อผู้ป่วยอยู่ (โหมดนำเสนอที่ประชุม) "
+                            "— คุณยังสามารถกดปุ่มสร้างรายงาน Excel ได้ตามปกติ"
+                        )
+
+                    if st.button(
+                        "🚀 สร้างรายงาน Excel", type="primary", key="btn_ex"
+                    ):
+                        with st.status(
+                            "⏳ กำลังสร้างไฟล์ Excel...", expanded=True
+                        ) as status:
+                            ex_final = edited_ex_df.copy()
+                            if "ลำดับ" in ex_final.columns:
+                                ex_final = ex_final.drop(columns=["ลำดับ"])
+                            ex_final.insert(
+                                0, "ลำดับ", range(1, len(ex_final) + 1)
+                            )
+                            cols_final = ["ลำดับ"] + [
+                                c
+                                for c in selected_export_cols
+                                if c != "ลำดับ"
+                            ]
+                            excel_bytes = generate_excel_with_images(
+                                ex_final, cols_final
+                            )
+                            status.update(
+                                label="✅ เตรียมไฟล์ Excel สำเร็จ!",
+                                state="complete",
+                                expanded=False,
+                            )
+
+                        if "ทั้งหมด" in selected_dates:
+                            f_date = "All_Dates"
+                        else:
+                            f_date = "_".join(
+                                [d.replace("/", "-") for d in selected_dates]
+                            )
+                        xlsx_mime = (
+                            "application/vnd.openxmlformats-officedocument"
+                            ".spreadsheetml.sheet"
+                        )
+                        st.download_button(
+                            label="📥 ดาวน์โหลดไฟล์ Excel",
+                            data=excel_bytes,
+                            file_name=f"Psychiatry_report_{f_date}.xlsx",
+                            mime=xlsx_mime,
+                            type="primary",
+                        )
+        else:
+            st.warning("ไม่พบข้อมูลผู้ป่วยในเงื่อนไขที่เลือก")
