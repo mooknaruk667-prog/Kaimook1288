@@ -505,14 +505,14 @@ if df is not None:
                         pdf_bytes = HTML(string="".join(html_parts)).write_pdf()
                         status.update(label="✅ สร้างไฟล์ PDF เสร็จสมบูรณ์!", state="complete", expanded=False)
 
-                if "ทั้งหมด" in selected_dates:
-                    f_date = "All_Dates"
-                else:
-                    f_date = "_".join([d.replace("/", "-") for d in selected_dates])
-                st.success(f"🎉 พร้อมดาวน์โหลดแล้ว! ({len(edited_df)} รายการ)")
-                st.download_button(
-                    label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Telepsychiatry_report_{f_date}.pdf", mime="application/pdf"
-                )
+                    if "ทั้งหมด" in selected_dates:
+                        f_date = "All_Dates"
+                    else:
+                        f_date = "_".join([d.replace("/", "-") for d in selected_dates])
+                    st.success(f"🎉 พร้อมดาวน์โหลดแล้ว! ({len(edited_df)} รายการ)")
+                    st.download_button(
+                        label="📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name=f"Telepsychiatry_report_{f_date}.pdf", mime="application/pdf"
+                    )
 
             with tab_excel:
                 st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
