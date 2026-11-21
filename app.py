@@ -544,27 +544,37 @@ if df is not None:
                 edited_df = working_df.copy()
 
                 if show_table:
-                    st.markdown("**📋 Preview ข้อมูล (ดับเบิลคลิกแก้ไขในตารางได้):**")
+                    edit_pdf_mode = st.toggle("✏️ เปิดโหมดแก้ไขข้อมูลในตาราง", value=False, key="edit_pdf_mode")
+                    st.markdown("**📋 Preview ข้อมูล:**")
                     pdf_display_df = working_df[avail_cols].copy().fillna("")
                     if "อายุ" in pdf_display_df.columns:
                         pdf_display_df["อายุ"] = pdf_display_df["อายุ"].apply(clean_age_value)
                     if "หน้า" in pdf_display_df.columns:
                         pdf_display_df["หน้า"] = pdf_display_df["หน้า"].apply(get_direct_url_preview)
-                    edited_pdf_display = st.data_editor(
-                        pdf_display_df.style.apply(highlight_and_group, axis=None),
-                        use_container_width=True, hide_index=True, column_order=avail_cols, key="pdf_editor_table",
-                        column_config={
-                            "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
-                            "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
-                            "ห้อง": st.column_config.TextColumn("ห้อง"),
-                            "อายุ": st.column_config.TextColumn("อายุ"),
-                        },
-                    )
-                    for col in avail_cols:
-                        if col in edited_pdf_display.columns:
-                            edited_df[col] = edited_pdf_display[col]
-                    if "อายุ" in edited_df.columns:
-                        edited_df["อายุ"] = edited_df["อายุ"].apply(clean_age_value)
+
+                    col_cfg_pdf = {
+                        "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
+                        "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
+                        "ห้อง": st.column_config.TextColumn("ห้อง"),
+                        "อายุ": st.column_config.TextColumn("อายุ"),
+                    }
+                    if edit_pdf_mode:
+                        edited_pdf_display = st.data_editor(
+                            pdf_display_df.style.apply(highlight_and_group, axis=None),
+                            use_container_width=True, hide_index=True, column_order=avail_cols, key="pdf_editor_table",
+                            column_config=col_cfg_pdf,
+                        )
+                        for col in avail_cols:
+                            if col in edited_pdf_display.columns:
+                                edited_df[col] = edited_pdf_display[col]
+                        if "อายุ" in edited_df.columns:
+                            edited_df["อายุ"] = edited_df["อายุ"].apply(clean_age_value)
+                    else:
+                        st.dataframe(
+                            pdf_display_df.style.apply(highlight_and_group, axis=None),
+                            use_container_width=True, hide_index=True, column_order=avail_cols,
+                            column_config=col_cfg_pdf,
+                        )
                 else:
                     st.info("🔒 ซ่อนตารางรายชื่อผู้ป่วยอยู่ (โหมดนำเสนอที่ประชุม) — คุณยังสามารถกดปุ่มสร้างรายงาน PDF ด้านล่างได้ตามปกติ")
 
@@ -754,23 +764,40 @@ if df is not None:
                     if "อายุ" in edited_ex_df.columns:
                         edited_ex_df["อายุ"] = edited_ex_df["อายุ"].apply(clean_age_value)
                     if show_table:
+                        edit_ex_mode = st.toggle("✏️ เปิดโหมดแก้ไขข้อมูลในตาราง", value=False, key="edit_ex_mode")
                         preview_ex_df = edited_ex_df.copy()
                         if "หน้า" in preview_ex_df.columns:
                             preview_ex_df["หน้า"] = preview_ex_df["หน้า"].apply(get_direct_url_preview)
-                            edited_ex_df = st.data_editor(
-                                preview_ex_df.style.apply(highlight_and_group, axis=None),
-                                use_container_width=True, hide_index=True, key="excel_editor_img",
-                                column_config={
-                                    "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
-                                    "อายุ": st.column_config.TextColumn("อายุ"),
-                                },
-                            )
+                            col_cfg_ex = {
+                                "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
+                                "อายุ": st.column_config.TextColumn("อายุ"),
+                            }
+                            if edit_ex_mode:
+                                edited_ex_df = st.data_editor(
+                                    preview_ex_df.style.apply(highlight_and_group, axis=None),
+                                    use_container_width=True, hide_index=True, key="excel_editor_img",
+                                    column_config=col_cfg_ex,
+                                )
+                            else:
+                                st.dataframe(
+                                    preview_ex_df.style.apply(highlight_and_group, axis=None),
+                                    use_container_width=True, hide_index=True,
+                                    column_config=col_cfg_ex,
+                                )
                         else:
-                            edited_ex_df = st.data_editor(
-                                preview_ex_df.style.apply(highlight_and_group, axis=None),
-                                use_container_width=True, hide_index=True, key="excel_editor_no_img",
-                                column_config={"อายุ": st.column_config.TextColumn("อายุ")},
-                            )
+                            col_cfg_ex = {"อายุ": st.column_config.TextColumn("อายุ")}
+                            if edit_ex_mode:
+                                edited_ex_df = st.data_editor(
+                                    preview_ex_df.style.apply(highlight_and_group, axis=None),
+                                    use_container_width=True, hide_index=True, key="excel_editor_no_img",
+                                    column_config=col_cfg_ex,
+                                )
+                            else:
+                                st.dataframe(
+                                    preview_ex_df.style.apply(highlight_and_group, axis=None),
+                                    use_container_width=True, hide_index=True,
+                                    column_config=col_cfg_ex,
+                                )
                         if "อายุ" in edited_ex_df.columns:
                             edited_ex_df["อายุ"] = edited_ex_df["อายุ"].apply(clean_age_value)
                     else:
