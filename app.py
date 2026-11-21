@@ -519,7 +519,10 @@ if df is not None:
                 if "หน้า" in subset_df.columns:
                     r_mask = subset_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False)
                     for col in styles.columns:
-                        styles.loc[r_mask, col] = "background-color: #FCE4EC;"
+                        if col == "ชื่อ-สกุล":
+                            styles.loc[r_mask, col] = "background-color: #FCE4EC; color: #DC2626; font-weight: 700;"
+                        else:
+                            styles.loc[r_mask, col] = "background-color: #FCE4EC;"
                 return styles
 
             tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
