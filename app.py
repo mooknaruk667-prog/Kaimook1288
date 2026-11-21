@@ -6,6 +6,8 @@ import re
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 import urllib.request
 import matplotlib.font_manager as fm
 
@@ -19,7 +21,6 @@ plt.switch_backend("Agg")
 PROTO = "https" + "://"
 SHEET_ID = "1dtpMxycg0en1_zdtsQreeLohqOVEqNyZyxCI26O5Zlc"
 SHEET_URL = f"{PROTO}docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
-EDIT_URL = f"{PROTO}docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
 FONT_URL = f"{PROTO}github.com/googlefonts/sarabun/raw/main/fonts/ttf/Sarabun-Regular.ttf"
 
 ID_RED = "15P_z1gObqnm29vn-afAJ4JeMRQ4Y-IZw"
@@ -27,6 +28,7 @@ ID_ORG = "1Vkl3jyY4W9h3Mv_l17xlWmbNw1A4p4-P"
 ID_YEL = "1YlAPW2PBMUbkuRt0unWjJTolQ9aAp48Y"
 ID_GRN = "1Wu3vMN2idLhA5fWlY4ZsGZ64Uf_c-f-B"
 ID_LOGO = "1KYrHcRg6dvs2h0nfDf7ZxpzWpLnCqnjY"
+
 
 @st.cache_resource
 def download_thai_font():
@@ -37,6 +39,7 @@ def download_thai_font():
         except Exception:
             pass
     return font_path
+
 
 THAI_FONT_PATH = download_thai_font()
 try:
@@ -58,6 +61,19 @@ def extract_gdrive_id(url_str):
     if m2:
         return m2.group(1)
     return None
+
+
+def get_color_level_label(face_val):
+    fs = str(face_val)
+    if ID_RED in fs:
+        return "แดง"
+    if ID_ORG in fs:
+        return "ส้ม"
+    if ID_YEL in fs:
+        return "เหลือง"
+    if ID_GRN in fs:
+        return "เขียว"
+    return "ไม่มีข้อมูล"
 
 
 def apply_pdpa_mask(df_in):
@@ -126,23 +142,13 @@ css_lines = [
     "h1 { color: #0284c7; font-weight: 800 !important; font-family: 'Sarabun', sans-serif; }",
     "h2, h3 { color: #1e293b; font-family: 'Sarabun', sans-serif; font-weight: 700; }",
     "[data-testid='stMetric'] { background-color: #ffffff; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; border-left: 6px solid #0ea5e9; }",
-    ".stButton>button { background-color: #0284c7; color: white; border-radius: 10px; border: none; padding: 12px 24px; font-weight: 600; }",
+    ".stButton>button { background-color: #0284c7; color: white; border-radius: 10px; border: none; padding: 10px 20px; font-weight: 600; }",
     "</style>",
 ]
 st.markdown("".join(css_lines), unsafe_allow_html=True)
 
-col_title, col_btn = st.columns([3, 1])
-with col_title:
-    st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
-    st.caption("ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel)")
-with col_btn:
-    st.write("")
-    st.link_button(
-        "📝 เปิดแก้ไขข้อมูลบน Google Sheet",
-        EDIT_URL,
-        type="secondary",
-        use_container_width=True,
-    )
+st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
+st.caption("ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel) พร้อมกราฟเชื่อมโยงเชิงลึก")
 
 
 @st.cache_data(ttl=60, show_spinner="⏳ กำลังซิงค์ข้อมูลจาก Google Sheet...")
@@ -165,13 +171,19 @@ def load_data(url):
 
 df = load_data(SHEET_URL)
 
+if "drill_filter" not in st.session_state:
+    st.session_state["drill_filter"] = {"col": None, "val": None}
+
 if df is not None:
     df.columns = df.columns.astype(str).str.strip().str.replace("\u200b", "")
 
     if "นัดแพทย์" in df.columns and "นัด" not in df.columns:
         df.rename(columns={"นัดแพทย์": "นัด"}, inplace=True)
 
-    req_cols = ["ชื่อ-สกุล", "เพศ", "สถานะ", "Dx", "อาการปัจจุบัน", "หน้า", "ห้อง", "แพทย์", "นัด"]
+    req_cols = [
+        "ชื่อ-สกุล", "เพศ", "อายุ", "สถานะ", "Dx", "อาการปัจจุบัน",
+        "หน้า", "ห้อง", "แพทย์", "นัด", "คดี", "อำเภอ"
+    ]
     for req_col in req_cols:
         if req_col not in df.columns:
             df[req_col] = ""
@@ -184,6 +196,25 @@ if df is not None:
         target_col = df.columns[0]
 
     df[target_col] = df[target_col].astype(str).str.strip()
+    df["ระดับสี"] = df["หน้า"].apply(get_color_level_label)
+
+    ages_num = pd.to_numeric(df["อายุ"], errors="coerce")
+    bins = [-1, 19, 29, 39, 49, 59, 200]
+    age_labels = ["<20", "20-29", "30-39", "40-49", "50-59", "60+"]
+    df["ช่วงอายุ"] = pd.cut(ages_num, bins=bins, labels=age_labels).astype(str)
+    df.loc[df["ช่วงอายุ"].isin(["nan", "None"]), "ช่วงอายุ"] = "ไม่ระบุ"
+
+    df["เพศ_clean"] = df["เพศ"].astype(str).str.strip()
+    df.loc[~df["เพศ_clean"].isin(["ชาย", "หญิง"]), "เพศ_clean"] = "ไม่ระบุ"
+
+    df["Dx_clean"] = df["Dx"].astype(str).str.strip()
+    df.loc[df["Dx_clean"].isin(["", "nan", "None"]), "Dx_clean"] = "ไม่ระบุ"
+
+    df["คดี_clean"] = df["คดี"].astype(str).str.strip()
+    df.loc[df["คดี_clean"].isin(["", "nan", "None"]), "คดี_clean"] = "ไม่ระบุ"
+
+    df["อำเภอ_clean"] = df["อำเภอ"].astype(str).str.strip()
+    df.loc[df["อำเภอ_clean"].isin(["", "nan", "None"]), "อำเภอ_clean"] = "ไม่ระบุ"
 
     dates_list = [d for d in df[target_col].dropna().unique() if str(d).strip() != "" and str(d).lower() != "nan"]
     docs_list = [str(d).strip() for d in df["แพทย์"].dropna().unique() if str(d).strip() != "" and str(d).lower() != "nan"]
@@ -208,17 +239,17 @@ if df is not None:
     if not has_filters:
         st.warning("⚠️ กรุณาเลือกตัวกรองอย่างน้อย 1 รายการในแต่ละช่อง")
     else:
-        filtered_df = df.copy()
+        base_df = df.copy()
         if "ทั้งหมด" not in selected_dates:
-            filtered_df = filtered_df[filtered_df[target_col].isin(selected_dates)]
+            base_df = base_df[base_df[target_col].isin(selected_dates)]
         if "ทั้งหมด" not in selected_doctors:
-            filtered_df = filtered_df[filtered_df["แพทย์"].astype(str).str.strip().isin(selected_doctors)]
+            base_df = base_df[base_df["แพทย์"].astype(str).str.strip().isin(selected_doctors)]
         if "ทั้งหมด" not in selected_statuses:
-            filtered_df = filtered_df[filtered_df["สถานะ"].astype(str).str.strip().isin(selected_statuses)]
+            base_df = base_df[base_df["สถานะ"].astype(str).str.strip().isin(selected_statuses)]
 
         if "ทั้งหมด" not in selected_colors:
-            f_col = filtered_df["หน้า"].fillna("").astype(str)
-            mask = pd.Series(False, index=filtered_df.index)
+            f_col = base_df["หน้า"].fillna("").astype(str)
+            mask = pd.Series(False, index=base_df.index)
             if "🔴 แดง" in selected_colors:
                 mask |= f_col.str.contains(ID_RED)
             if "🟠 ส้ม" in selected_colors:
@@ -230,7 +261,39 @@ if df is not None:
             if "⚪ ไม่มีข้อมูล" in selected_colors:
                 any_c = (f_col.str.contains(ID_RED) | f_col.str.contains(ID_ORG) | f_col.str.contains(ID_YEL) | f_col.str.contains(ID_GRN))
                 mask |= ~any_c
-            filtered_df = filtered_df[mask]
+            base_df = base_df[mask]
+
+        active_col = st.session_state["drill_filter"]["col"]
+        active_val = st.session_state["drill_filter"]["val"]
+
+        df_col_ctrl, df_btn_ctrl = st.columns([4, 1])
+        with df_col_ctrl:
+            if active_col and active_val:
+                col_label_map = {
+                    "เพศ_clean": "เพศ",
+                    "ระดับสี": "ระดับสี",
+                    "Dx_clean": "Dx",
+                    "ช่วงอายุ": "ช่วงอายุ",
+                    "อำเภอ_clean": "อำเภอ",
+                    "คดี_clean": "คดี",
+                }
+                disp_col = col_label_map.get(active_col, active_col)
+                st.info(f"🔎 **กำลังดูข้อมูลเชิงลึก:** `{disp_col}` = **{active_val}** (กราฟอื่นๆ และตารางด้านล่างปรับตามตัวเลือกนี้แล้ว)")
+            else:
+                st.caption("💡 **วิธีใช้งาน:** คลิกที่ **กราฟวงกลมสัดส่วนเพศ (ข้อ 1)** หรือกราฟอื่นๆ เพื่อกรองข้อมูลเชื่อมโยงกันได้ทันที")
+        with df_btn_ctrl:
+            if active_col and active_val:
+                if st.button("🔄 ล้างตัวกรองกราฟ", key="reset_drill_btn", use_container_width=True):
+                    st.session_state["drill_filter"] = {"col": None, "val": None}
+                    st.rerun()
+
+        filtered_df = base_df.copy()
+        if active_col and active_val and active_col in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df[active_col].astype(str) == str(active_val)]
+
+        charts_df = base_df.copy()
+        if active_col == "เพศ_clean" and active_val:
+            charts_df = charts_df[charts_df["เพศ_clean"].astype(str) == str(active_val)]
 
         if len(filtered_df) > 0:
             filtered_df["นัด"] = filtered_df["นัด"].fillna("")
@@ -240,54 +303,237 @@ if df is not None:
             total_p = len(filtered_df)
             new_p = len(filtered_df[filtered_df["สถานะ"].astype(str).str.strip() == "รายใหม่"])
             red_p = sum(filtered_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False))
-
-            filtered_df["เพศ"] = filtered_df["เพศ"].astype(str).str.strip()
-            male_c = len(filtered_df[filtered_df["เพศ"] == "ชาย"])
-            female_c = len(filtered_df[filtered_df["เพศ"] == "หญิง"])
+            male_c = len(filtered_df[filtered_df["เพศ_clean"] == "ชาย"])
+            female_c = len(filtered_df[filtered_df["เพศ_clean"] == "หญิง"])
 
             new_pct = (new_p / total_p * 100) if total_p > 0 else 0
             red_pct = (red_p / total_p * 100) if total_p > 0 else 0
 
-            d_col1, d_col2, d_col3, d_col4 = st.columns([1, 1.2, 1.2, 1.5])
-            d_col1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_p} ราย")
-            d_col2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_p} ราย ({new_pct:.1f}%)")
-            d_col3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_p} ราย ({red_pct:.1f}%)")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_p} ราย")
+            m2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_p} ราย ({new_pct:.1f}%)")
+            m3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_p} ราย ({red_pct:.1f}%)")
+            m4.metric("🚻 ชาย / หญิง", f"ช {male_c} : ญ {female_c}")
 
-            with d_col4:
-                st.caption("🚻 สัดส่วนเพศ (Gender)")
-                if male_c + female_c > 0:
-                    fig_d, ax_d = plt.subplots(figsize=(2.5, 1.5))
-                    fig_d.patch.set_alpha(0.0)
-                    sizes, labels, colors = [], [], []
-                    if male_c > 0:
-                        sizes.append(male_c)
-                        labels.append("Male")
-                        colors.append("#38bdf8")
-                    if female_c > 0:
-                        sizes.append(female_c)
-                        labels.append("Female")
-                        colors.append("#f472b6")
-                    
-                    tot_g = sum(sizes)
-                    
-                    wedges, texts, autotexts = ax_d.pie(
-                        sizes, 
-                        labels=labels, 
-                        autopct=lambda p: f"{int(round(p * tot_g / 100))} ({p:.1f}%)", 
-                        colors=colors, 
-                        startangle=90, 
-                        textprops={"fontsize": 8, "fontweight": "bold"}
-                    )
-                    
-                    for t in texts:
-                        t.set_color("#475569")
-                    for at in autotexts:
-                        at.set_color("black")
-                    ax_d.axis("equal")
-                    st.pyplot(fig_d)
-                    plt.close(fig_d)
-                else:
-                    st.info("ไม่มีข้อมูลเพศ")
+            st.markdown("### 📊 กราฟวิเคราะห์ข้อมูลเชิงลึก (เชื่อมโยงกันอัตโนมัติ)")
+
+            # --- แถวที่ 1: ข้อ 1 กราฟวงกลมสัดส่วนเพศ + ข้อ 2 กราฟวงกลมระดับสี ---
+            g_col1, g_col2 = st.columns(2)
+
+            with g_col1:
+                base_total_p = len(base_df)
+                g_counts = base_df["เพศ_clean"].value_counts().reset_index()
+                g_counts.columns = ["เพศ", "จำนวน"]
+                g_counts["ข้อความ"] = g_counts["จำนวน"].apply(
+                    lambda v: f"{v} ({v / base_total_p * 100:.1f}%)" if base_total_p > 0 else "0 (0.0%)"
+                )
+                g_color_map = {"ชาย": "#38bdf8", "หญิง": "#f472b6", "ไม่ระบุ": "#94a3b8"}
+
+                fig_gender = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=g_counts["เพศ"],
+                            values=g_counts["จำนวน"],
+                            customdata=g_counts["ข้อความ"],
+                            text=g_counts["ข้อความ"],
+                            textinfo="label+text",
+                            textfont=dict(color="black", size=12),
+                            marker=dict(colors=[g_color_map.get(k, "#64748b") for k in g_counts["เพศ"]]),
+                            hole=0.25,
+                        )
+                    ]
+                )
+                fig_gender.update_layout(
+                    title="1. สัดส่วนเพศ ชาย / หญิง (คลิกเพื่อกรองกราฟอื่น)",
+                    height=320,
+                    margin=dict(t=45, b=20, l=20, r=20),
+                )
+                ev_gender = st.plotly_chart(
+                    fig_gender,
+                    use_container_width=True,
+                    key="chart_gender_pie",
+                    on_select="rerun",
+                    selection_mode="points",
+                )
+                if ev_gender and ev_gender.selection and ev_gender.selection.get("points"):
+                    pt = ev_gender.selection["points"][0]
+                    clicked_val = pt.get("label")
+                    if clicked_val and (st.session_state["drill_filter"]["col"] != "เพศ_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
+                        st.session_state["drill_filter"] = {"col": "เพศ_clean", "val": clicked_val}
+                        st.rerun()
+
+            with g_col2:
+                lvl_order = ["แดง", "ส้ม", "เหลือง", "เขียว", "ไม่มีข้อมูล"]
+                lvl_hex = {
+                    "แดง": "#F44336",
+                    "ส้ม": "#FF9800",
+                    "เหลือง": "#FACC15",
+                    "เขียว": "#4CAF50",
+                    "ไม่มีข้อมูล": "#CBD5E1",
+                }
+                c_total_p = len(charts_df)
+                c_counts_raw = charts_df["ระดับสี"].value_counts()
+                c_rows = []
+                for lv in lvl_order:
+                    cnt = int(c_counts_raw.get(lv, 0))
+                    if cnt > 0:
+                        pct = (cnt / c_total_p * 100) if c_total_p > 0 else 0
+                        c_rows.append({"ระดับสี": lv, "จำนวน": cnt, "ข้อความ": f"{cnt} ({pct:.1f}%)"})
+                c_counts_df = pd.DataFrame(c_rows)
+
+                fig_lvl = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=c_counts_df["ระดับสี"],
+                            values=c_counts_df["จำนวน"],
+                            customdata=c_counts_df["ข้อความ"],
+                            text=c_counts_df["ข้อความ"],
+                            textinfo="label+text",
+                            textfont=dict(color="black", size=12),
+                            marker=dict(colors=[lvl_hex.get(k, "#94a3b8") for k in c_counts_df["ระดับสี"]]),
+                            hole=0.25,
+                        )
+                    ]
+                )
+                fig_lvl.update_layout(
+                    title="2. สัดส่วนระดับสี พร้อมจำนวนและเปอร์เซ็นต์ (คลิกเพื่อกรอง)",
+                    height=320,
+                    margin=dict(t=45, b=20, l=20, r=20),
+                )
+                ev_lvl = st.plotly_chart(
+                    fig_lvl,
+                    use_container_width=True,
+                    key="chart_level_pie",
+                    on_select="rerun",
+                    selection_mode="points",
+                )
+                if ev_lvl and ev_lvl.selection and ev_lvl.selection.get("points"):
+                    pt = ev_lvl.selection["points"][0]
+                    clicked_val = pt.get("label")
+                    if clicked_val and (st.session_state["drill_filter"]["col"] != "ระดับสี" or st.session_state["drill_filter"]["val"] != clicked_val):
+                        st.session_state["drill_filter"] = {"col": "ระดับสี", "val": clicked_val}
+                        st.rerun()
+
+            # --- แถวที่ 2: ข้อ 3 กราฟแท่ง Dx + ข้อ 4 กราฟแท่งช่วงอายุ ---
+            b_col1, b_col2 = st.columns(2)
+
+            with b_col1:
+                dx_grp = charts_df["Dx_clean"].value_counts().reset_index()
+                dx_grp.columns = ["Dx_clean", "จำนวน"]
+                fig_dx = px.bar(
+                    dx_grp,
+                    x="Dx_clean",
+                    y="จำนวน",
+                    text="จำนวน",
+                    color_discrete_sequence=["#0284c7"],
+                    labels={"Dx_clean": "การวินิจฉัย (Dx)", "จำนวน": "จำนวน (ราย)"},
+                    title="3. กราฟแท่ง Dx (คลิกแท่งเพื่อกรอง Dx)",
+                )
+                fig_dx.update_traces(textfont_color="black", textposition="outside")
+                fig_dx.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                ev_dx = st.plotly_chart(
+                    fig_dx,
+                    use_container_width=True,
+                    key="chart_dx_bar",
+                    on_select="rerun",
+                    selection_mode="points",
+                )
+                if ev_dx and ev_dx.selection and ev_dx.selection.get("points"):
+                    pt = ev_dx.selection["points"][0]
+                    clicked_val = pt.get("x")
+                    if clicked_val and (st.session_state["drill_filter"]["col"] != "Dx_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
+                        st.session_state["drill_filter"] = {"col": "Dx_clean", "val": clicked_val}
+                        st.rerun()
+
+            with b_col2:
+                age_order = age_labels + ["ไม่ระบุ"]
+                age_raw = charts_df["ช่วงอายุ"].value_counts()
+                age_rows = [{"ช่วงอายุ": k, "จำนวน": int(age_raw.get(k, 0))} for k in age_order if int(age_raw.get(k, 0)) > 0]
+                age_grp = pd.DataFrame(age_rows)
+                fig_age = px.bar(
+                    age_grp,
+                    x="ช่วงอายุ",
+                    y="จำนวน",
+                    text="จำนวน",
+                    category_orders={"ช่วงอายุ": age_order},
+                    color_discrete_sequence=["#0ea5e9"],
+                    labels={"ช่วงอายุ": "ช่วงอายุ (ปี)", "จำนวน": "จำนวน (ราย)"},
+                    title="4. กราฟแท่งช่วงอายุ (คลิกแท่งเพื่อกรองช่วงอายุ)",
+                )
+                fig_age.update_traces(textfont_color="black", textposition="outside")
+                fig_age.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                ev_age = st.plotly_chart(
+                    fig_age,
+                    use_container_width=True,
+                    key="chart_age_bar",
+                    on_select="rerun",
+                    selection_mode="points",
+                )
+                if ev_age and ev_age.selection and ev_age.selection.get("points"):
+                    pt = ev_age.selection["points"][0]
+                    clicked_val = pt.get("x")
+                    if clicked_val and (st.session_state["drill_filter"]["col"] != "ช่วงอายุ" or st.session_state["drill_filter"]["val"] != clicked_val):
+                        st.session_state["drill_filter"] = {"col": "ช่วงอายุ", "val": clicked_val}
+                        st.rerun()
+
+            # --- แถวที่ 3: ข้อ 5 กราฟอำเภอ + ข้อ 6 กราฟคดี ---
+            c_col1, c_col2 = st.columns(2)
+
+            with c_col1:
+                amp_grp = charts_df["อำเภอ_clean"].value_counts().reset_index()
+                amp_grp.columns = ["อำเภอ_clean", "จำนวน"]
+                fig_amp = px.bar(
+                    amp_grp,
+                    x="อำเภอ_clean",
+                    y="จำนวน",
+                    text="จำนวน",
+                    color_discrete_sequence=["#10b981"],
+                    labels={"อำเภอ_clean": "อำเภอ", "จำนวน": "จำนวน (ราย)"},
+                    title="5. กราฟอำเภอ (คลิกแท่งเพื่อกรองอำเภอ)",
+                )
+                fig_amp.update_traces(textfont_color="black", textposition="outside")
+                fig_amp.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                ev_amp = st.plotly_chart(
+                    fig_amp,
+                    use_container_width=True,
+                    key="chart_amp_bar",
+                    on_select="rerun",
+                    selection_mode="points",
+                )
+                if ev_amp and ev_amp.selection and ev_amp.selection.get("points"):
+                    pt = ev_amp.selection["points"][0]
+                    clicked_val = pt.get("x")
+                    if clicked_val and (st.session_state["drill_filter"]["col"] != "อำเภอ_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
+                        st.session_state["drill_filter"] = {"col": "อำเภอ_clean", "val": clicked_val}
+                        st.rerun()
+
+            with c_col2:
+                case_grp = charts_df["คดี_clean"].value_counts().reset_index()
+                case_grp.columns = ["คดี_clean", "จำนวน"]
+                fig_case = px.bar(
+                    case_grp,
+                    x="คดี_clean",
+                    y="จำนวน",
+                    text="จำนวน",
+                    color_discrete_sequence=["#6366f1"],
+                    labels={"คดี_clean": "ฐานความผิด / คดี", "จำนวน": "จำนวน (ราย)"},
+                    title="6. กราฟคดี (คลิกแท่งเพื่อกรองคดี)",
+                )
+                fig_case.update_traces(textfont_color="black", textposition="outside")
+                fig_case.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                ev_case = st.plotly_chart(
+                    fig_case,
+                    use_container_width=True,
+                    key="chart_case_bar",
+                    on_select="rerun",
+                    selection_mode="points",
+                )
+                if ev_case and ev_case.selection and ev_case.selection.get("points"):
+                    pt = ev_case.selection["points"][0]
+                    clicked_val = pt.get("x")
+                    if clicked_val and (st.session_state["drill_filter"]["col"] != "คดี_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
+                        st.session_state["drill_filter"] = {"col": "คดี_clean", "val": clicked_val}
+                        st.rerun()
 
             st.markdown("---")
             p_col1, p_col2 = st.columns(2)
@@ -325,7 +571,7 @@ if df is not None:
             with tab_pdf:
                 problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                 suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
-                preview_cols = ["ชื่อ-สกุล", "สถานะ", "Dx", "อาการปัจจุบัน", "หน้า", "นัด", "ห้อง", "แพทย์"]
+                preview_cols = ["ชื่อ-สกุล", "เพศ", "อายุ", "สถานะ", "Dx", "คดี", "อำเภอ", "อาการปัจจุบัน", "หน้า", "นัด", "ห้อง", "แพทย์"]
                 avail_cols = [c for c in preview_cols if c in working_df.columns]
                 edited_df = working_df.copy()
 
@@ -351,7 +597,7 @@ if df is not None:
 
                 if st.button("🚀 สร้างรายงาน PDF", type="primary", key="btn_pdf"):
                     from weasyprint import HTML
-                    
+
                     with st.status("⏳ กำลังสร้างรายงาน PDF...", expanded=True) as status:
                         st.markdown("1️⃣ **กำลังจัดรูปแบบตาราง...**")
                         rows_list = []
@@ -392,7 +638,7 @@ if df is not None:
                         new_f = len(new_c[gd_s.loc[new_c.index] == "หญิง"])
                         nr_m = len(nr_c[gd_s.loc[nr_c.index] == "ชาย"])
                         nr_f = len(nr_c[gd_s.loc[nr_c.index] == "หญิง"])
-                        
+
                         dx_counts = edited_df["Dx"].value_counts()
                         valid_dx = {k: v for k, v in dx_counts.items() if str(k).strip() != "" and str(k).lower() != "nan"}
                         if valid_dx:
@@ -439,7 +685,7 @@ if df is not None:
                             tot_lvl = sum(act_lvl.values())
                             ax2.pie(
                                 act_lvl.values(), autopct=lambda p: f"{int(round(p * tot_lvl / 100))} ({p:.1f}%)",
-                                startangle=90, colors=cols2, textprops={"fontsize": 8, "fontfamily": THAI_FONT_NAME}
+                                startangle=90, colors=cols2, textprops={"fontsize": 8, "color": "black", "fontfamily": THAI_FONT_NAME}
                             )
                             ax2.axis("equal")
                             buf2 = io.BytesIO()
@@ -529,7 +775,7 @@ if df is not None:
                 pref_cols = ["ชื่อ-สกุล", "เพศ", "สถานะ", "Dx", "อาการปัจจุบัน", "หน้า", "ห้อง", "แพทย์", "นัด"]
                 def_cols = [c for c in pref_cols if c in all_cols]
                 selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_cols, default=def_cols if def_cols else all_cols)
-                
+
                 if selected_export_cols:
                     edited_ex_df = working_df[selected_export_cols].copy().fillna("")
                     if show_table:
