@@ -167,15 +167,8 @@ css_lines = [
 ]
 st.markdown("".join(css_lines), unsafe_allow_html=True)
 
-col_title, col_refresh = st.columns([4, 1])
-with col_title:
-    st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
-    st.caption("ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel)")
-with col_refresh:
-    st.write("")
-    if st.button("🔄 รีเฟรชข้อมูลทันที", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+st.title("🌿 ระบบ Report ข้อมูลจิตเวช")
+st.caption("ระบบจัดการข้อมูลและส่งออกรายงานอัตโนมัติ (PDF / Excel)")
 
 
 @st.cache_data(ttl=60, show_spinner="⏳ กำลังซิงค์ข้อมูลจาก Google Sheet...")
