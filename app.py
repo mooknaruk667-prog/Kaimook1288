@@ -136,6 +136,30 @@ def generate_excel_with_images(export_df, export_cols):
     return buffer.getvalue()
 
 
+def handle_chart_selection(chart_event, target_col, value_key="x"):
+    """จัดการการคลิกกราฟให้เชื่อมโยงกัน และคลิกซ้ำที่เดิมเพื่อล้างตัวกรองได้"""
+    if not chart_event or not getattr(chart_event, "selection", None):
+        return False
+    pts = chart_event.selection.get("points") or []
+    if not pts:
+        return False
+    pt = pts[0]
+    raw_val = pt.get(value_key)
+    if raw_val is None or str(raw_val).strip() == "":
+        return False
+    clicked_val = str(raw_val).strip()
+    cur_col = st.session_state["drill_filter"]["col"]
+    cur_val = st.session_state["drill_filter"]["val"]
+
+    if cur_col == target_col and cur_val == clicked_val:
+        st.session_state["drill_filter"] = {"col": None, "val": None}
+        return True
+    if cur_col != target_col or cur_val != clicked_val:
+        st.session_state["drill_filter"] = {"col": target_col, "val": clicked_val}
+        return True
+    return False
+
+
 css_lines = [
     "<style>",
     ".stApp { background-color: #F8FAFC; }",
@@ -180,9 +204,13 @@ if df is not None:
     if "นัดแพทย์" in df.columns and "นัด" not in df.columns:
         df.rename(columns={"นัดแพทย์": "นัด"}, inplace=True)
 
+    # ใช้คอลัมน์ "อ." เป็นหลัก หากไม่มีค่อย fallback เป็น "อำเภอ"
+    if "อ." not in df.columns and "อำเภอ" in df.columns:
+        df["อ."] = df["อำเภอ"]
+
     req_cols = [
         "ชื่อ-สกุล", "เพศ", "อายุ", "สถานะ", "Dx", "อาการปัจจุบัน",
-        "หน้า", "ห้อง", "แพทย์", "นัด", "คดี", "อำเภอ"
+        "หน้า", "ห้อง", "แพทย์", "นัด", "คดี", "อ."
     ]
     for req_col in req_cols:
         if req_col not in df.columns:
@@ -198,11 +226,16 @@ if df is not None:
     df[target_col] = df[target_col].astype(str).str.strip()
     df["ระดับสี"] = df["หน้า"].apply(get_color_level_label)
 
+    # ทำความสะอาดอายุให้เป็นจำนวนเต็ม ไม่มีจุดทศนิยม
     ages_num = pd.to_numeric(df["อายุ"], errors="coerce")
+    ages_int = ages_num.round().astype("Int64")
+    df["อายุ_int"] = ages_int.apply(lambda v: str(int(v)) if pd.notna(v) else "ไม่ระบุ")
+
     bins = [-1, 19, 29, 39, 49, 59, 200]
     age_labels = ["<20", "20-29", "30-39", "40-49", "50-59", "60+"]
-    df["ช่วงอายุ"] = pd.cut(ages_num, bins=bins, labels=age_labels).astype(str)
-    df.loc[df["ช่วงอายุ"].isin(["nan", "None"]), "ช่วงอายุ"] = "ไม่ระบุ"
+    age_cut = pd.cut(ages_num.round(), bins=bins, labels=age_labels).astype(str)
+    df["ช่วงอายุ"] = age_cut
+    df.loc[df["ช่วงอายุ"].isin(["nan", "None", "<NA>"]), "ช่วงอายุ"] = "ไม่ระบุ"
 
     df["เพศ_clean"] = df["เพศ"].astype(str).str.strip()
     df.loc[~df["เพศ_clean"].isin(["ชาย", "หญิง"]), "เพศ_clean"] = "ไม่ระบุ"
@@ -213,7 +246,7 @@ if df is not None:
     df["คดี_clean"] = df["คดี"].astype(str).str.strip()
     df.loc[df["คดี_clean"].isin(["", "nan", "None"]), "คดี_clean"] = "ไม่ระบุ"
 
-    df["อำเภอ_clean"] = df["อำเภอ"].astype(str).str.strip()
+    df["อำเภอ_clean"] = df["อ."].astype(str).str.strip()
     df.loc[df["อำเภอ_clean"].isin(["", "nan", "None"]), "อำเภอ_clean"] = "ไม่ระบุ"
 
     dates_list = [d for d in df[target_col].dropna().unique() if str(d).strip() != "" and str(d).lower() != "nan"]
@@ -274,11 +307,11 @@ if df is not None:
                     "ระดับสี": "ระดับสี",
                     "Dx_clean": "Dx",
                     "ช่วงอายุ": "ช่วงอายุ",
-                    "อำเภอ_clean": "อำเภอ",
+                    "อำเภอ_clean": "อำเภอ (อ.)",
                     "คดี_clean": "คดี",
                 }
                 disp_col = col_label_map.get(active_col, active_col)
-                st.info(f"🔎 **กำลังดูข้อมูลเชิงลึก:** `{disp_col}` = **{active_val}** (กราฟอื่นๆ และตารางด้านล่างปรับตามตัวเลือกนี้แล้ว)")
+                st.info(f"🔎 **กำลังดูข้อมูลเชิงลึก:** `{disp_col}` = **{active_val}** (คลิกซ้ำที่เดิมหรือกดปุ่มล้างเพื่อดูทั้งหมด)")
             else:
                 st.caption("💡 **วิธีใช้งาน:** คลิกที่ **กราฟวงกลมสัดส่วนเพศ (ข้อ 1)** หรือกราฟอื่นๆ เพื่อกรองข้อมูลเชื่อมโยงกันได้ทันที")
         with df_btn_ctrl:
@@ -289,11 +322,12 @@ if df is not None:
 
         filtered_df = base_df.copy()
         if active_col and active_val and active_col in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df[active_col].astype(str) == str(active_val)]
+            filtered_df = filtered_df[filtered_df[active_col].astype(str).str.strip() == str(active_val).strip()]
 
+        # กราฟแท่งข้อ 3-6 เชื่อมกับเพศที่เลือกจากข้อ 1
         charts_df = base_df.copy()
         if active_col == "เพศ_clean" and active_val:
-            charts_df = charts_df[charts_df["เพศ_clean"].astype(str) == str(active_val)]
+            charts_df = charts_df[charts_df["เพศ_clean"].astype(str).str.strip() == str(active_val).strip()]
 
         if len(filtered_df) > 0:
             filtered_df["นัด"] = filtered_df["นัด"].fillna("")
@@ -310,10 +344,10 @@ if df is not None:
             red_pct = (red_p / total_p * 100) if total_p > 0 else 0
 
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("👥 ผู้ป่วยทั้งหมด", f"{total_p} ราย")
-            m2.metric("🆕 ผู้ป่วยรายใหม่", f"{new_p} ราย ({new_pct:.1f}%)")
-            m3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{red_p} ราย ({red_pct:.1f}%)")
-            m4.metric("🚻 ชาย / หญิง", f"ช {male_c} : ญ {female_c}")
+            m1.metric("👥 ผู้ป่วยทั้งหมด", f"{int(total_p)} ราย")
+            m2.metric("🆕 ผู้ป่วยรายใหม่", f"{int(new_p)} ราย ({new_pct:.1f}%)")
+            m3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{int(red_p)} ราย ({red_pct:.1f}%)")
+            m4.metric("🚻 ชาย / หญิง", f"ช {int(male_c)} : ญ {int(female_c)}")
 
             st.markdown("### 📊 กราฟวิเคราะห์ข้อมูลเชิงลึก (เชื่อมโยงกันอัตโนมัติ)")
 
@@ -325,7 +359,7 @@ if df is not None:
                 g_counts = base_df["เพศ_clean"].value_counts().reset_index()
                 g_counts.columns = ["เพศ", "จำนวน"]
                 g_counts["ข้อความ"] = g_counts["จำนวน"].apply(
-                    lambda v: f"{v} ({v / base_total_p * 100:.1f}%)" if base_total_p > 0 else "0 (0.0%)"
+                    lambda v: f"{int(v)} ({v / base_total_p * 100:.1f}%)" if base_total_p > 0 else "0 (0.0%)"
                 )
                 g_color_map = {"ชาย": "#38bdf8", "หญิง": "#f472b6", "ไม่ระบุ": "#94a3b8"}
 
@@ -355,12 +389,8 @@ if df is not None:
                     on_select="rerun",
                     selection_mode="points",
                 )
-                if ev_gender and ev_gender.selection and ev_gender.selection.get("points"):
-                    pt = ev_gender.selection["points"][0]
-                    clicked_val = pt.get("label")
-                    if clicked_val and (st.session_state["drill_filter"]["col"] != "เพศ_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
-                        st.session_state["drill_filter"] = {"col": "เพศ_clean", "val": clicked_val}
-                        st.rerun()
+                if handle_chart_selection(ev_gender, "เพศ_clean", value_key="label"):
+                    st.rerun()
 
             with g_col2:
                 lvl_order = ["แดง", "ส้ม", "เหลือง", "เขียว", "ไม่มีข้อมูล"]
@@ -407,12 +437,8 @@ if df is not None:
                     on_select="rerun",
                     selection_mode="points",
                 )
-                if ev_lvl and ev_lvl.selection and ev_lvl.selection.get("points"):
-                    pt = ev_lvl.selection["points"][0]
-                    clicked_val = pt.get("label")
-                    if clicked_val and (st.session_state["drill_filter"]["col"] != "ระดับสี" or st.session_state["drill_filter"]["val"] != clicked_val):
-                        st.session_state["drill_filter"] = {"col": "ระดับสี", "val": clicked_val}
-                        st.rerun()
+                if handle_chart_selection(ev_lvl, "ระดับสี", value_key="label"):
+                    st.rerun()
 
             # --- แถวที่ 2: ข้อ 3 กราฟแท่ง Dx + ข้อ 4 กราฟแท่งช่วงอายุ ---
             b_col1, b_col2 = st.columns(2)
@@ -420,6 +446,7 @@ if df is not None:
             with b_col1:
                 dx_grp = charts_df["Dx_clean"].value_counts().reset_index()
                 dx_grp.columns = ["Dx_clean", "จำนวน"]
+                dx_grp["จำนวน"] = dx_grp["จำนวน"].astype(int)
                 fig_dx = px.bar(
                     dx_grp,
                     x="Dx_clean",
@@ -430,7 +457,7 @@ if df is not None:
                     title="3. กราฟแท่ง Dx (คลิกแท่งเพื่อกรอง Dx)",
                 )
                 fig_dx.update_traces(textfont_color="black", textposition="outside")
-                fig_dx.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                fig_dx.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20), yaxis=dict(tickformat="d"))
                 ev_dx = st.plotly_chart(
                     fig_dx,
                     use_container_width=True,
@@ -438,12 +465,8 @@ if df is not None:
                     on_select="rerun",
                     selection_mode="points",
                 )
-                if ev_dx and ev_dx.selection and ev_dx.selection.get("points"):
-                    pt = ev_dx.selection["points"][0]
-                    clicked_val = pt.get("x")
-                    if clicked_val and (st.session_state["drill_filter"]["col"] != "Dx_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
-                        st.session_state["drill_filter"] = {"col": "Dx_clean", "val": clicked_val}
-                        st.rerun()
+                if handle_chart_selection(ev_dx, "Dx_clean", value_key="x"):
+                    st.rerun()
 
             with b_col2:
                 age_order = age_labels + ["ไม่ระบุ"]
@@ -461,7 +484,7 @@ if df is not None:
                     title="4. กราฟแท่งช่วงอายุ (คลิกแท่งเพื่อกรองช่วงอายุ)",
                 )
                 fig_age.update_traces(textfont_color="black", textposition="outside")
-                fig_age.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                fig_age.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20), yaxis=dict(tickformat="d"))
                 ev_age = st.plotly_chart(
                     fig_age,
                     use_container_width=True,
@@ -469,30 +492,27 @@ if df is not None:
                     on_select="rerun",
                     selection_mode="points",
                 )
-                if ev_age and ev_age.selection and ev_age.selection.get("points"):
-                    pt = ev_age.selection["points"][0]
-                    clicked_val = pt.get("x")
-                    if clicked_val and (st.session_state["drill_filter"]["col"] != "ช่วงอายุ" or st.session_state["drill_filter"]["val"] != clicked_val):
-                        st.session_state["drill_filter"] = {"col": "ช่วงอายุ", "val": clicked_val}
-                        st.rerun()
+                if handle_chart_selection(ev_age, "ช่วงอายุ", value_key="x"):
+                    st.rerun()
 
-            # --- แถวที่ 3: ข้อ 5 กราฟอำเภอ + ข้อ 6 กราฟคดี ---
+            # --- แถวที่ 3: ข้อ 5 กราฟอำเภอ (คอลัมน์ อ.) + ข้อ 6 กราฟคดี ---
             c_col1, c_col2 = st.columns(2)
 
             with c_col1:
                 amp_grp = charts_df["อำเภอ_clean"].value_counts().reset_index()
                 amp_grp.columns = ["อำเภอ_clean", "จำนวน"]
+                amp_grp["จำนวน"] = amp_grp["จำนวน"].astype(int)
                 fig_amp = px.bar(
                     amp_grp,
                     x="อำเภอ_clean",
                     y="จำนวน",
                     text="จำนวน",
                     color_discrete_sequence=["#10b981"],
-                    labels={"อำเภอ_clean": "อำเภอ", "จำนวน": "จำนวน (ราย)"},
-                    title="5. กราฟอำเภอ (คลิกแท่งเพื่อกรองอำเภอ)",
+                    labels={"อำเภอ_clean": "อำเภอ (อ.)", "จำนวน": "จำนวน (ราย)"},
+                    title="5. กราฟอำเภอ [คอลัมน์ อ.] (คลิกแท่งเพื่อกรองอำเภอ)",
                 )
                 fig_amp.update_traces(textfont_color="black", textposition="outside")
-                fig_amp.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                fig_amp.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20), yaxis=dict(tickformat="d"))
                 ev_amp = st.plotly_chart(
                     fig_amp,
                     use_container_width=True,
@@ -500,16 +520,13 @@ if df is not None:
                     on_select="rerun",
                     selection_mode="points",
                 )
-                if ev_amp and ev_amp.selection and ev_amp.selection.get("points"):
-                    pt = ev_amp.selection["points"][0]
-                    clicked_val = pt.get("x")
-                    if clicked_val and (st.session_state["drill_filter"]["col"] != "อำเภอ_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
-                        st.session_state["drill_filter"] = {"col": "อำเภอ_clean", "val": clicked_val}
-                        st.rerun()
+                if handle_chart_selection(ev_amp, "อำเภอ_clean", value_key="x"):
+                    st.rerun()
 
             with c_col2:
                 case_grp = charts_df["คดี_clean"].value_counts().reset_index()
                 case_grp.columns = ["คดี_clean", "จำนวน"]
+                case_grp["จำนวน"] = case_grp["จำนวน"].astype(int)
                 fig_case = px.bar(
                     case_grp,
                     x="คดี_clean",
@@ -520,7 +537,7 @@ if df is not None:
                     title="6. กราฟคดี (คลิกแท่งเพื่อกรองคดี)",
                 )
                 fig_case.update_traces(textfont_color="black", textposition="outside")
-                fig_case.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20))
+                fig_case.update_layout(height=340, margin=dict(t=45, b=30, l=20, r=20), yaxis=dict(tickformat="d"))
                 ev_case = st.plotly_chart(
                     fig_case,
                     use_container_width=True,
@@ -528,12 +545,8 @@ if df is not None:
                     on_select="rerun",
                     selection_mode="points",
                 )
-                if ev_case and ev_case.selection and ev_case.selection.get("points"):
-                    pt = ev_case.selection["points"][0]
-                    clicked_val = pt.get("x")
-                    if clicked_val and (st.session_state["drill_filter"]["col"] != "คดี_clean" or st.session_state["drill_filter"]["val"] != clicked_val):
-                        st.session_state["drill_filter"] = {"col": "คดี_clean", "val": clicked_val}
-                        st.rerun()
+                if handle_chart_selection(ev_case, "คดี_clean", value_key="x"):
+                    st.rerun()
 
             st.markdown("---")
             p_col1, p_col2 = st.columns(2)
@@ -543,6 +556,7 @@ if df is not None:
                 mask_pii = st.toggle("🔒 ปิดบังชื่อและข้อมูลส่วนบุคคล (PDPA Mode)", value=False, help="เปลี่ยนชื่อ-สกุลเป็นรหัสและซ่อนข้อมูลส่วนตัวทั้งบนจอและในไฟล์")
 
             working_df = apply_pdpa_mask(filtered_df) if mask_pii else filtered_df.copy()
+            working_df["อายุ"] = working_df["อายุ_int"]
 
             def get_direct_url_preview(url):
                 gid = extract_gdrive_id(url)
@@ -571,7 +585,7 @@ if df is not None:
             with tab_pdf:
                 problem_text = st.text_area("✍️ บันทึกปัญหา / อุปสรรค (ถ้ามี):", placeholder="พิมพ์ปัญหาหรืออุปสรรคที่พบในวันนี้ที่นี่...")
                 suggestion_text = st.text_area("💡 ข้อเสนอแนะ (ถ้ามี):", placeholder="พิมพ์ข้อเสนอแนะเพิ่มเติมที่นี่...")
-                preview_cols = ["ชื่อ-สกุล", "เพศ", "อายุ", "สถานะ", "Dx", "คดี", "อำเภอ", "อาการปัจจุบัน", "หน้า", "นัด", "ห้อง", "แพทย์"]
+                preview_cols = ["ชื่อ-สกุล", "เพศ", "อายุ", "สถานะ", "Dx", "คดี", "อ.", "อาการปัจจุบัน", "หน้า", "นัด", "ห้อง", "แพทย์"]
                 avail_cols = [c for c in preview_cols if c in working_df.columns]
                 edited_df = working_df.copy()
 
@@ -587,6 +601,7 @@ if df is not None:
                             "หน้า": st.column_config.ImageColumn("ระดับ (รูปภาพ)"),
                             "นัด": st.column_config.TextColumn("นัดครั้งถัดไป"),
                             "ห้อง": st.column_config.TextColumn("ห้อง"),
+                            "อายุ": st.column_config.TextColumn("อายุ"),
                         },
                     )
                     for col in avail_cols:
@@ -772,7 +787,7 @@ if df is not None:
             with tab_excel:
                 st.markdown("### 📊 ส่งออกข้อมูลรูปแบบตาราง (Excel)")
                 all_cols = working_df.columns.tolist()
-                pref_cols = ["ชื่อ-สกุล", "เพศ", "สถานะ", "Dx", "อาการปัจจุบัน", "หน้า", "ห้อง", "แพทย์", "นัด"]
+                pref_cols = ["ชื่อ-สกุล", "เพศ", "อายุ", "สถานะ", "Dx", "คดี", "อ.", "อาการปัจจุบัน", "หน้า", "ห้อง", "แพทย์", "นัด"]
                 def_cols = [c for c in pref_cols if c in all_cols]
                 selected_export_cols = st.multiselect("📌 เลือกคอลัมน์ที่จะส่งออก:", options=all_cols, default=def_cols if def_cols else all_cols)
 
