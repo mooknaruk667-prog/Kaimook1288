@@ -5,3 +5,4 @@ openpyxl
 weasyprint
 pillow
 numpy
+plotly
