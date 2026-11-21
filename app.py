@@ -520,13 +520,18 @@ if df is not None:
                         ad = r.get("นัด", "")
                         if ad in c_map:
                             styles.loc[idx, "นัด"] = f"background-color: {c_map[ad]}; font-weight: 600;"
+
+                r_mask = pd.Series(False, index=subset_df.index)
                 if "หน้า" in subset_df.columns:
-                    r_mask = subset_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False)
-                    for col in styles.columns:
-                        if col == "ชื่อ-สกุล":
-                            styles.loc[r_mask, col] = "background-color: #FECACA; color: #B91C1C; font-weight: 700;"
-                        else:
-                            styles.loc[r_mask, col] = "background-color: #FCE4EC;"
+                    r_mask |= subset_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False)
+                if "สถานะ" in subset_df.columns:
+                    r_mask |= subset_df["สถานะ"].fillna("").astype(str).str.contains("แดง", na=False)
+
+                for col in styles.columns:
+                    if col == "ชื่อ-สกุล":
+                        styles.loc[r_mask, col] = "background-color: #FECACA; color: #991B1B; font-weight: 700;"
+                    else:
+                        styles.loc[r_mask, col] = "background-color: #FECACA; color: #991B1B;"
                 return styles
 
             tab_pdf, tab_excel = st.tabs(["📄 Telepsychiatry Report", "📊 รายงานทั่วไป (Excel)"])
