@@ -328,167 +328,171 @@ if df is not None:
             m3.metric("🚨 เคสเฝ้าระวัง (แดง)", f"{int(red_p)} ราย ({red_pct:.1f}%)")
             m4.metric("🚻 ชาย / หญิง", f"ช {int(male_c)} : ญ {int(female_c)}")
 
-            st.markdown("### 📊 สรุปข้อมูลเชิงลึก")
+            st.markdown("---")
+            show_insights = st.toggle("📊 แสดงกราฟข้อมูลเชิงลึก", value=False, help="เปิด-ปิดกลุ่มกราฟสรุปข้อมูลเชิงลึกทั้ง 6 กราฟ")
 
-            # ชุดสีตรงข้ามเฉพาะของแต่ละกราฟ
-            palette_gender = {"ชาย": "#38BDF8", "หญิง": "#FB923C", "ไม่ระบุ": "#CBD5E1"}
-            palette_risk   = {"ชาย": "#2DD4BF", "หญิง": "#F43F5E", "ไม่ระบุ": "#CBD5E1"}
-            palette_dx     = {"ชาย": "#818CF8", "หญิง": "#FBBF24", "ไม่ระบุ": "#CBD5E1"}
-            palette_age    = {"ชาย": "#34D399", "หญิง": "#F472B6", "ไม่ระบุ": "#CBD5E1"}
-            palette_amp    = {"ชาย": "#0284C7", "หญิง": "#F97316", "ไม่ระบุ": "#CBD5E1"}
-            palette_case   = {"ชาย": "#A855F7", "หญิง": "#A3E635", "ไม่ระบุ": "#CBD5E1"}
+            if show_insights:
+                st.markdown("### 📊 สรุปข้อมูลเชิงลึก")
 
-            # --- แถวที่ 1: 1. เพศ + 2. ระดับความเสี่ยง ---
-            g_col1, g_col2 = st.columns(2)
+                # ชุดสีตรงข้ามเฉพาะของแต่ละกราฟ
+                palette_gender = {"ชาย": "#38BDF8", "หญิง": "#FB923C", "ไม่ระบุ": "#CBD5E1"}
+                palette_risk   = {"ชาย": "#2DD4BF", "หญิง": "#F43F5E", "ไม่ระบุ": "#CBD5E1"}
+                palette_dx     = {"ชาย": "#818CF8", "หญิง": "#FBBF24", "ไม่ระบุ": "#CBD5E1"}
+                palette_age    = {"ชาย": "#34D399", "หญิง": "#F472B6", "ไม่ระบุ": "#CBD5E1"}
+                palette_amp    = {"ชาย": "#0284C7", "หญิง": "#F97316", "ไม่ระบุ": "#CBD5E1"}
+                palette_case   = {"ชาย": "#A855F7", "หญิง": "#A3E635", "ไม่ระบุ": "#CBD5E1"}
 
-            with g_col1:
-                st.markdown("**1. เพศ**")
-                g_counts = filtered_df["เพศ_clean"].value_counts().reset_index()
-                g_counts.columns = ["เพศ", "จำนวน"]
-                g_counts["ข้อความ"] = g_counts["จำนวน"].apply(
-                    lambda v: f"{int(v)} ({v / total_p * 100:.1f}%)" if total_p > 0 else "0 (0.0%)"
-                )
-                fig_gender = go.Figure(
-                    data=[
-                        go.Pie(
-                            labels=g_counts["เพศ"],
-                            values=g_counts["จำนวน"],
-                            text=g_counts["ข้อความ"],
-                            textinfo="label+text",
-                            textfont=dict(color="black", size=12),
-                            marker=dict(colors=[palette_gender.get(k, "#CBD5E1") for k in g_counts["เพศ"]]),
-                            hole=0.25,
-                        )
-                    ]
-                )
-                fig_gender.update_layout(height=330, margin=dict(t=15, b=15, l=15, r=15))
-                st.plotly_chart(fig_gender, use_container_width=True, key="chart_1_gender")
+                # --- แถวที่ 1: 1. เพศ + 2. ระดับความเสี่ยง ---
+                g_col1, g_col2 = st.columns(2)
 
-            with g_col2:
-                st.markdown("**2. ระดับความเสี่ยง**")
-                lvl_order = ["แดง", "ส้ม", "เหลือง", "เขียว", "ไม่มีข้อมูล"]
-                risk_grp = filtered_df.groupby(["ระดับสี", "เพศ_clean"]).size().reset_index(name="จำนวน")
-                risk_grp["จำนวน"] = risk_grp["จำนวน"].astype(int)
-                risk_grp["ข้อความ"] = risk_grp["จำนวน"].apply(
-                    lambda v: f"{v} ({v / total_p * 100:.1f}%)" if total_p > 0 else "0 (0.0%)"
-                )
-                fig_risk = px.bar(
-                    risk_grp,
-                    x="ระดับสี",
-                    y="จำนวน",
-                    color="เพศ_clean",
-                    barmode="group",
-                    text="ข้อความ",
-                    category_orders={"ระดับสี": lvl_order},
-                    color_discrete_map=palette_risk,
-                    labels={"ระดับสี": "ระดับความเสี่ยง", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
-                )
-                fig_risk.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
-                fig_risk.update_layout(height=330, margin=dict(t=25, b=25, l=20, r=20), yaxis=dict(tickformat="d"))
-                st.plotly_chart(fig_risk, use_container_width=True, key="chart_2_risk")
+                with g_col1:
+                    st.markdown("**1. เพศ**")
+                    g_counts = filtered_df["เพศ_clean"].value_counts().reset_index()
+                    g_counts.columns = ["เพศ", "จำนวน"]
+                    g_counts["ข้อความ"] = g_counts["จำนวน"].apply(
+                        lambda v: f"{int(v)} ({v / total_p * 100:.1f}%)" if total_p > 0 else "0 (0.0%)"
+                    )
+                    fig_gender = go.Figure(
+                        data=[
+                            go.Pie(
+                                labels=g_counts["เพศ"],
+                                values=g_counts["จำนวน"],
+                                text=g_counts["ข้อความ"],
+                                textinfo="label+text",
+                                textfont=dict(color="black", size=12),
+                                marker=dict(colors=[palette_gender.get(k, "#CBD5E1") for k in g_counts["เพศ"]]),
+                                hole=0.25,
+                            )
+                        ]
+                    )
+                    fig_gender.update_layout(height=330, margin=dict(t=15, b=15, l=15, r=15))
+                    st.plotly_chart(fig_gender, use_container_width=True, key="chart_1_gender")
 
-            # --- แถวที่ 2: 3. การวินิจฉัย + 4. ช่วงอายุ (เรียงมากไปน้อย) ---
-            b_col1, b_col2 = st.columns(2)
+                with g_col2:
+                    st.markdown("**2. ระดับความเสี่ยง**")
+                    lvl_order = ["แดง", "ส้ม", "เหลือง", "เขียว", "ไม่มีข้อมูล"]
+                    risk_grp = filtered_df.groupby(["ระดับสี", "เพศ_clean"]).size().reset_index(name="จำนวน")
+                    risk_grp["จำนวน"] = risk_grp["จำนวน"].astype(int)
+                    risk_grp["ข้อความ"] = risk_grp["จำนวน"].apply(
+                        lambda v: f"{v} ({v / total_p * 100:.1f}%)" if total_p > 0 else "0 (0.0%)"
+                    )
+                    fig_risk = px.bar(
+                        risk_grp,
+                        x="ระดับสี",
+                        y="จำนวน",
+                        color="เพศ_clean",
+                        barmode="group",
+                        text="ข้อความ",
+                        category_orders={"ระดับสี": lvl_order},
+                        color_discrete_map=palette_risk,
+                        labels={"ระดับสี": "ระดับความเสี่ยง", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
+                    )
+                    fig_risk.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
+                    fig_risk.update_layout(height=330, margin=dict(t=25, b=25, l=20, r=20), yaxis=dict(tickformat="d"))
+                    st.plotly_chart(fig_risk, use_container_width=True, key="chart_2_risk")
 
-            with b_col1:
-                st.markdown("**3. การวินิจฉัย**")
-                dx_order = filtered_df["Dx_clean"].value_counts().index.tolist()
-                dx_grp = filtered_df.groupby(["Dx_clean", "เพศ_clean"]).size().reset_index(name="จำนวน")
-                dx_grp["จำนวน"] = dx_grp["จำนวน"].astype(int)
-                dx_grp["ข้อความ"] = dx_grp["จำนวน"].apply(
-                    lambda v: f"{v} ({v / total_p * 100:.1f}%)" if total_p > 0 else "0 (0.0%)"
-                )
-                fig_dx = px.bar(
-                    dx_grp,
-                    x="Dx_clean",
-                    y="จำนวน",
-                    color="เพศ_clean",
-                    barmode="group",
-                    text="ข้อความ",
-                    category_orders={"Dx_clean": dx_order},
-                    color_discrete_map=palette_dx,
-                    labels={"Dx_clean": "การวินิจฉัย", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
-                )
-                fig_dx.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
-                fig_dx.update_layout(height=340, margin=dict(t=25, b=25, l=20, r=20), yaxis=dict(tickformat="d"))
-                st.plotly_chart(fig_dx, use_container_width=True, key="chart_3_dx")
+                # --- แถวที่ 2: 3. การวินิจฉัย + 4. ช่วงอายุ (เรียงมากไปน้อย) ---
+                b_col1, b_col2 = st.columns(2)
 
-            with b_col2:
-                st.markdown("**4. ช่วงอายุ**")
-                age_order_desc = filtered_df["ช่วงอายุ"].value_counts().index.tolist()
-                age_grp = filtered_df.groupby(["ช่วงอายุ", "เพศ_clean"]).size().reset_index(name="จำนวน")
-                age_grp["จำนวน"] = age_grp["จำนวน"].astype(int)
-                fig_age = px.bar(
-                    age_grp,
-                    x="ช่วงอายุ",
-                    y="จำนวน",
-                    color="เพศ_clean",
-                    barmode="group",
-                    text="จำนวน",
-                    category_orders={"ช่วงอายุ": age_order_desc},
-                    color_discrete_map=palette_age,
-                    labels={"ช่วงอายุ": "ช่วงอายุ (ปี)", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
-                )
-                fig_age.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
-                fig_age.update_layout(height=340, margin=dict(t=25, b=25, l=20, r=20), yaxis=dict(tickformat="d"))
-                st.plotly_chart(fig_age, use_container_width=True, key="chart_4_age")
+                with b_col1:
+                    st.markdown("**3. การวินิจฉัย**")
+                    dx_order = filtered_df["Dx_clean"].value_counts().index.tolist()
+                    dx_grp = filtered_df.groupby(["Dx_clean", "เพศ_clean"]).size().reset_index(name="จำนวน")
+                    dx_grp["จำนวน"] = dx_grp["จำนวน"].astype(int)
+                    dx_grp["ข้อความ"] = dx_grp["จำนวน"].apply(
+                        lambda v: f"{v} ({v / total_p * 100:.1f}%)" if total_p > 0 else "0 (0.0%)"
+                    )
+                    fig_dx = px.bar(
+                        dx_grp,
+                        x="Dx_clean",
+                        y="จำนวน",
+                        color="เพศ_clean",
+                        barmode="group",
+                        text="ข้อความ",
+                        category_orders={"Dx_clean": dx_order},
+                        color_discrete_map=palette_dx,
+                        labels={"Dx_clean": "การวินิจฉัย", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
+                    )
+                    fig_dx.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
+                    fig_dx.update_layout(height=340, margin=dict(t=25, b=25, l=20, r=20), yaxis=dict(tickformat="d"))
+                    st.plotly_chart(fig_dx, use_container_width=True, key="chart_3_dx")
 
-            # --- แถวที่ 3: 5. อำเภอ (10 อันดับแรก - แนวนอน) + 6. คดี (10 อันดับแรก - แนวนอน) ---
-            c_col1, c_col2 = st.columns(2)
+                with b_col2:
+                    st.markdown("**4. ช่วงอายุ**")
+                    age_order_desc = filtered_df["ช่วงอายุ"].value_counts().index.tolist()
+                    age_grp = filtered_df.groupby(["ช่วงอายุ", "เพศ_clean"]).size().reset_index(name="จำนวน")
+                    age_grp["จำนวน"] = age_grp["จำนวน"].astype(int)
+                    fig_age = px.bar(
+                        age_grp,
+                        x="ช่วงอายุ",
+                        y="จำนวน",
+                        color="เพศ_clean",
+                        barmode="group",
+                        text="จำนวน",
+                        category_orders={"ช่วงอายุ": age_order_desc},
+                        color_discrete_map=palette_age,
+                        labels={"ช่วงอายุ": "ช่วงอายุ (ปี)", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
+                    )
+                    fig_age.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
+                    fig_age.update_layout(height=340, margin=dict(t=25, b=25, l=20, r=20), yaxis=dict(tickformat="d"))
+                    st.plotly_chart(fig_age, use_container_width=True, key="chart_4_age")
 
-            with c_col1:
-                st.markdown("**5. อำเภอ (10 อันดับแรก)**")
-                amp_order_top10 = filtered_df["อำเภอ_clean"].value_counts().head(10).index.tolist()
-                amp_top_df = filtered_df[filtered_df["อำเภอ_clean"].isin(amp_order_top10)]
-                amp_grp = amp_top_df.groupby(["อำเภอ_clean", "เพศ_clean"]).size().reset_index(name="จำนวน")
-                amp_grp["จำนวน"] = amp_grp["จำนวน"].astype(int)
-                fig_amp = px.bar(
-                    amp_grp,
-                    x="จำนวน",
-                    y="อำเภอ_clean",
-                    color="เพศ_clean",
-                    barmode="group",
-                    orientation="h",
-                    text="จำนวน",
-                    category_orders={"อำเภอ_clean": amp_order_top10},
-                    color_discrete_map=palette_amp,
-                    labels={"อำเภอ_clean": "อำเภอ", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
-                )
-                fig_amp.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
-                fig_amp.update_layout(
-                    height=380,
-                    margin=dict(t=20, b=20, l=10, r=30),
-                    xaxis=dict(tickformat="d"),
-                    yaxis=dict(autorange="reversed"),
-                )
-                st.plotly_chart(fig_amp, use_container_width=True, key="chart_5_amp")
+                # --- แถวที่ 3: 5. อำเภอ (10 อันดับแรก - แนวนอน) + 6. คดี (10 อันดับแรก - แนวนอน) ---
+                c_col1, c_col2 = st.columns(2)
 
-            with c_col2:
-                st.markdown("**6. คดี (10 อันดับแรก)**")
-                case_order_top10 = filtered_df["คดี_clean"].value_counts().head(10).index.tolist()
-                case_top_df = filtered_df[filtered_df["คดี_clean"].isin(case_order_top10)]
-                case_grp = case_top_df.groupby(["คดี_clean", "เพศ_clean"]).size().reset_index(name="จำนวน")
-                case_grp["จำนวน"] = case_grp["จำนวน"].astype(int)
-                fig_case = px.bar(
-                    case_grp,
-                    x="จำนวน",
-                    y="คดี_clean",
-                    color="เพศ_clean",
-                    barmode="group",
-                    orientation="h",
-                    text="จำนวน",
-                    category_orders={"คดี_clean": case_order_top10},
-                    color_discrete_map=palette_case,
-                    labels={"คดี_clean": "คดี", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
-                )
-                fig_case.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
-                fig_case.update_layout(
-                    height=380,
-                    margin=dict(t=20, b=20, l=10, r=30),
-                    xaxis=dict(tickformat="d"),
-                    yaxis=dict(autorange="reversed"),
-                )
-                st.plotly_chart(fig_case, use_container_width=True, key="chart_6_case")
+                with c_col1:
+                    st.markdown("**5. อำเภอ (10 อันดับแรก)**")
+                    amp_order_top10 = filtered_df["อำเภอ_clean"].value_counts().head(10).index.tolist()
+                    amp_top_df = filtered_df[filtered_df["อำเภอ_clean"].isin(amp_order_top10)]
+                    amp_grp = amp_top_df.groupby(["อำเภอ_clean", "เพศ_clean"]).size().reset_index(name="จำนวน")
+                    amp_grp["จำนวน"] = amp_grp["จำนวน"].astype(int)
+                    fig_amp = px.bar(
+                        amp_grp,
+                        x="จำนวน",
+                        y="อำเภอ_clean",
+                        color="เพศ_clean",
+                        barmode="group",
+                        orientation="h",
+                        text="จำนวน",
+                        category_orders={"อำเภอ_clean": amp_order_top10},
+                        color_discrete_map=palette_amp,
+                        labels={"อำเภอ_clean": "อำเภอ", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
+                    )
+                    fig_amp.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
+                    fig_amp.update_layout(
+                        height=380,
+                        margin=dict(t=20, b=20, l=10, r=30),
+                        xaxis=dict(tickformat="d"),
+                        yaxis=dict(autorange="reversed"),
+                    )
+                    st.plotly_chart(fig_amp, use_container_width=True, key="chart_5_amp")
+
+                with c_col2:
+                    st.markdown("**6. คดี (10 อันดับแรก)**")
+                    case_order_top10 = filtered_df["คดี_clean"].value_counts().head(10).index.tolist()
+                    case_top_df = filtered_df[filtered_df["คดี_clean"].isin(case_order_top10)]
+                    case_grp = case_top_df.groupby(["คดี_clean", "เพศ_clean"]).size().reset_index(name="จำนวน")
+                    case_grp["จำนวน"] = case_grp["จำนวน"].astype(int)
+                    fig_case = px.bar(
+                        case_grp,
+                        x="จำนวน",
+                        y="คดี_clean",
+                        color="เพศ_clean",
+                        barmode="group",
+                        orientation="h",
+                        text="จำนวน",
+                        category_orders={"คดี_clean": case_order_top10},
+                        color_discrete_map=palette_case,
+                        labels={"คดี_clean": "คดี", "เพศ_clean": "เพศ", "จำนวน": "จำนวน (ราย)"},
+                    )
+                    fig_case.update_traces(textfont_color="black", textposition="outside", cliponaxis=False)
+                    fig_case.update_layout(
+                        height=380,
+                        margin=dict(t=20, b=20, l=10, r=30),
+                        xaxis=dict(tickformat="d"),
+                        yaxis=dict(autorange="reversed"),
+                    )
+                    st.plotly_chart(fig_case, use_container_width=True, key="chart_6_case")
 
             st.markdown("---")
             p_col1, p_col2 = st.columns(2)
@@ -520,7 +524,7 @@ if df is not None:
                     r_mask = subset_df["หน้า"].fillna("").astype(str).str.contains(ID_RED, na=False)
                     for col in styles.columns:
                         if col == "ชื่อ-สกุล":
-                            styles.loc[r_mask, col] = "background-color: #FCE4EC; color: #DC2626; font-weight: 700;"
+                            styles.loc[r_mask, col] = "background-color: #FECACA; color: #B91C1C; font-weight: 700;"
                         else:
                             styles.loc[r_mask, col] = "background-color: #FCE4EC;"
                 return styles
